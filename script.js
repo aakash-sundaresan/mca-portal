@@ -50,9 +50,9 @@ class S3Portal {
         try {
             // Get environment variables injected by Amplify
             const bucketName = '%%S3_BUCKET_NAME%%';
-            const region = '%%AWS_REGION%%' || 'us-east-1';
-            const accessKeyId = '%%AWS_ACCESS_KEY_ID%%';
-            const secretAccessKey = '%%AWS_SECRET_ACCESS_KEY%%';
+            const region = '%%REGION%%' || 'us-east-2';
+            const accessKeyId = '%%ACCESS_KEY_ID%%';
+            const secretAccessKey = '%%SECRET_ACCESS_KEY%%';
 
             // Store bucket name for later use
             this.bucketName = bucketName;
