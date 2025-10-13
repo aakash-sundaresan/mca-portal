@@ -1,15 +1,10 @@
 {
   "name": "mca-portal",
   "version": "1.0.0",
-  "description": "Document upload portal with S3 integration",
-  "main": "backend/server.js",
+  "description": "Simple vanilla JavaScript S3 document reader",
+  "main": "index.html",
   "scripts": {
-    "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd backend && npm run dev",
-    "client": "cd frontend && npm start",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.2"
+    "start": "python -m http.server 8000",
+    "serve": "npx serve ."
   }
 }
