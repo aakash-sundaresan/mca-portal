@@ -1,0 +1,207 @@
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
+require('dotenv').config();
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+
+// Configure AWS S3
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION || 'us-east-1'
+});
+
+// Configure multer for file uploads
+const storage = multer.memoryStorage();
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  }
+});
+
+// Store upload status
+const uploadStatus = new Map();
+
+// Upload file to S3 in auditors-report/uploads/ folder
+const uploadToS3 = async (file, key) => {
+  const params = {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+    Body: file.buffer,
+    ContentType: file.mimetype
+  };
+
+  return await s3.upload(params).promise();
+};
+
+// Check if JSON exists in the pipeline output
+const checkJsonExists = async (fileName) => {
+  try {
+    const jsonKey = `auditors-report/json/${fileName}.json`;
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: jsonKey
+    };
+    
+    await s3.headObject(params).promise();
+    return true;
+  } catch (error) {
+    if (error.code === 'NotFound') {
+      return false;
+    }
+    throw error;
+  }
+};
+
+// Fetch JSON from pipeline output
+const fetchJsonFromPipeline = async (fileName) => {
+  try {
+    const jsonKey = `auditors-report/json/${fileName}.json`;
+    const params = {
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: jsonKey
+    };
+    
+    const data = await s3.getObject(params).promise();
+    return JSON.parse(data.Body.toString());
+  } catch (error) {
+    if (error.code === 'NoSuchKey') {
+      return null;
+    }
+    throw error;
+  }
+};
+
+// Upload endpoint
+app.post('/api/upload', upload.single('document'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const uploadId = uuidv4();
+    const fileExtension = req.file.originalname.split('.').pop();
+    const fileName = `${uploadId}.${fileExtension}`;
+    const s3Key = `auditors-report/uploads/${fileName}`;
+
+    // Update status
+    uploadStatus.set(uploadId, { 
+      status: 'uploading', 
+      fileName: req.file.originalname,
+      uploadId: uploadId,
+      s3Key: s3Key
+    });
+
+    // Upload file to S3 uploads/ folder
+    const uploadResult = await uploadToS3(req.file, s3Key);
+    
+    // Update status - file uploaded, waiting for pipeline processing
+    uploadStatus.set(uploadId, { 
+      status: 'processing', 
+      fileName: req.file.originalname,
+      uploadId: uploadId,
+      s3Key: s3Key,
+      s3Location: uploadResult.Location,
+      message: 'File uploaded. Waiting for pipeline processing...'
+    });
+
+    res.json({
+      success: true,
+      uploadId: uploadId,
+      message: 'File uploaded successfully. Pipeline will process it and generate JSON.',
+      fileLocation: uploadResult.Location,
+      s3Key: s3Key
+    });
+
+  } catch (error) {
+    console.error('Upload error:', error);
+    res.status(500).json({ error: 'Upload failed', details: error.message });
+  }
+});
+
+// Get upload status
+app.get('/api/status/:uploadId', async (req, res) => {
+  try {
+    const uploadId = req.params.uploadId;
+    const status = uploadStatus.get(uploadId);
+    
+    if (!status) {
+      return res.status(404).json({ error: 'Upload not found' });
+    }
+
+    // If status is processing, check if JSON is available from pipeline
+    if (status.status === 'processing' && status.s3Key) {
+      const fileName = status.s3Key.split('/').pop().split('.').slice(0, -1).join('.');
+      const jsonExists = await checkJsonExists(fileName);
+      
+      if (jsonExists) {
+        status.status = 'completed';
+        status.message = 'Pipeline processing completed. JSON is available.';
+        uploadStatus.set(uploadId, status);
+      }
+    }
+
+    res.json(status);
+  } catch (error) {
+    console.error('Status check error:', error);
+    res.status(500).json({ error: 'Failed to check status', details: error.message });
+  }
+});
+
+// Get JSON data for a specific upload
+app.get('/api/json/:uploadId', async (req, res) => {
+  try {
+    const uploadId = req.params.uploadId;
+    const status = uploadStatus.get(uploadId);
+    
+    if (!status) {
+      return res.status(404).json({ error: 'Upload not found' });
+    }
+
+    if (!status.s3Key) {
+      return res.status(404).json({ error: 'No S3 key found for this upload' });
+    }
+
+    // Extract filename from S3 key (remove uploads/ prefix and file extension)
+    const fileName = status.s3Key.split('/').pop().split('.').slice(0, -1).join('.');
+    const jsonData = await fetchJsonFromPipeline(fileName);
+
+    if (!jsonData) {
+      return res.status(404).json({ error: 'JSON not yet generated by pipeline' });
+    }
+
+    res.json(jsonData);
+  } catch (error) {
+    console.error('Error fetching JSON:', error);
+    res.status(500).json({ error: 'Failed to fetch JSON', details: error.message });
+  }
+});
+
+// Get all uploads
+app.get('/api/uploads', (req, res) => {
+  const uploads = Array.from(uploadStatus.entries()).map(([id, status]) => ({
+    id,
+    ...status
+  }));
+  
+  res.json(uploads);
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Make sure to create a .env file with your AWS credentials`);
+});
