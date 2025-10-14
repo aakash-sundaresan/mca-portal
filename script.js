@@ -60,9 +60,9 @@ class S3Portal {
             } else {
                 // Use environment variables injected by Amplify
                 bucketName = '%%S3_BUCKET_NAME%%';
-                region = '%%REGION%%' || 'us-east-1';
-                accessKeyId = '%%ACCESS_KEY_ID%%';
-                secretAccessKey = '%%SECRET_ACCESS_KEY%%';
+                region = '%%AWS_REGION%%' || 'us-east-1';
+                accessKeyId = '%%AWS_ACCESS_KEY_ID%%';
+                secretAccessKey = '%%AWS_SECRET_ACCESS_KEY%%';
             }
 
             // Validate environment variables
