@@ -48,36 +48,90 @@ class S3Portal {
 
     initializeAWS() {
         try {
-            // Get environment variables injected by Amplify
-            const bucketName = '%%S3_BUCKET_NAME%%';
-            const region = '%%REGION%%' || 'us-east-2';
-            const accessKeyId = '%%ACCESS_KEY_ID%%';
-            const secretAccessKey = '%%SECRET_ACCESS_KEY%%';
+            let bucketName, region, accessKeyId, secretAccessKey;
+            
+            // Check if local config exists (for local development)
+            if (window.AWS_CONFIG) {
+                console.log('Using local AWS_CONFIG');
+                bucketName = window.AWS_CONFIG.bucketName;
+                region = window.AWS_CONFIG.region;
+                accessKeyId = window.AWS_CONFIG.accessKeyId;
+                secretAccessKey = window.AWS_CONFIG.secretAccessKey;
+            } else {
+                // Use environment variables injected by Amplify
+                bucketName = '%%S3_BUCKET_NAME%%';
+                region = '%%AWS_REGION%%' || 'us-east-1';
+                accessKeyId = '%%AWS_ACCESS_KEY_ID%%';
+                secretAccessKey = '%%AWS_SECRET_ACCESS_KEY%%';
+            }
+
+            // Validate environment variables
+            console.log('=== AWS Configuration Debug ===');
+            console.log('Bucket Name:', bucketName);
+            console.log('Region:', region);
+            console.log('Access Key ID (first 8 chars):', accessKeyId ? accessKeyId.substring(0, 8) + '...' : 'NOT SET');
+            console.log('Secret Key (last 4 chars):', secretAccessKey ? '***' + secretAccessKey.substring(secretAccessKey.length - 4) : 'NOT SET');
+            console.log('Has %% in bucket?', bucketName.includes('%%'));
+            console.log('Has %% in accessKey?', accessKeyId.includes('%%'));
+            
+            if (!bucketName || bucketName.includes('%%')) {
+                throw new Error('S3_BUCKET_NAME not properly configured. For local development, create config.local.js file.');
+            }
+            
+            if (!accessKeyId || accessKeyId.includes('%%')) {
+                throw new Error('AWS_ACCESS_KEY_ID not properly configured. For local development, create config.local.js file.');
+            }
+            
+            if (!secretAccessKey || secretAccessKey.includes('%%')) {
+                throw new Error('AWS_SECRET_ACCESS_KEY not properly configured. For local development, create config.local.js file.');
+            }
 
             // Store bucket name for later use
             this.bucketName = bucketName;
 
-            // Configure AWS SDK
+            // Configure AWS SDK with explicit credentials
             AWS.config.update({
                 region: region,
-                credentials: new AWS.Credentials({
-                    accessKeyId: accessKeyId,
-                    secretAccessKey: secretAccessKey
-                })
+                accessKeyId: accessKeyId,
+                secretAccessKey: secretAccessKey,
+                signatureVersion: 'v4'
             });
 
-            this.s3 = new AWS.S3();
+            this.s3 = new AWS.S3({
+                region: region,
+                credentials: new AWS.Credentials(accessKeyId, secretAccessKey)
+            });
             
-            console.log('AWS SDK initialized successfully');
-            console.log('Bucket:', bucketName);
-            console.log('Region:', region);
+            console.log('✅ AWS SDK initialized successfully');
+            console.log('Ready to connect to bucket:', bucketName);
             
             // Load results directory on startup
             this.listObjects(this.resultsPath);
             
         } catch (error) {
-            console.error('Error initializing AWS:', error);
+            console.error('❌ Error initializing AWS:', error);
             this.showMessage('Error initializing AWS SDK: ' + error.message, 'error');
+            
+            const fileList = document.getElementById('fileList');
+            fileList.innerHTML = `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-name" style="color: red;">AWS Configuration Error</div>
+                        <div class="file-meta">${error.message}</div>
+                        <div class="file-meta" style="margin-top: 10px;">
+                            Please check:
+                            <ul style="margin-top: 5px; padding-left: 20px;">
+                                <li>S3_BUCKET_NAME is set in Amplify</li>
+                                <li>AWS_REGION is set in Amplify</li>
+                                <li>AWS_ACCESS_KEY_ID is set in Amplify</li>
+                                <li>AWS_SECRET_ACCESS_KEY is set in Amplify</li>
+                                <li>IAM user has S3 permissions</li>
+                                <li>For local: create config.local.js</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
     }
 
@@ -135,6 +189,11 @@ class S3Portal {
             const fileName = this.selectedFile.name;
             const key = `${this.uploadPath}${fileName}`;
             
+            console.log('Starting upload...');
+            console.log('Bucket:', this.bucketName);
+            console.log('Key:', key);
+            console.log('File size:', this.selectedFile.size);
+            
             const params = {
                 Bucket: this.bucketName,
                 Key: key,
@@ -148,6 +207,7 @@ class S3Portal {
             upload.on('httpUploadProgress', (progress) => {
                 const percentage = Math.round((progress.loaded / progress.total) * 100);
                 document.querySelector('.progress-text').textContent = `Uploading... ${percentage}%`;
+                console.log(`Upload progress: ${percentage}%`);
             });
 
             const result = await upload.promise();
@@ -169,7 +229,27 @@ class S3Portal {
             
         } catch (error) {
             console.error('Upload error:', error);
-            this.showMessage('Upload failed: ' + error.message, 'error');
+            console.error('Upload error details:', {
+                code: error.code,
+                message: error.message,
+                statusCode: error.statusCode,
+                name: error.name,
+                requestId: error.requestId
+            });
+            
+            let errorMessage = error.message || error.code || 'Unknown error';
+            
+            if (error.code === 'NoSuchBucket') {
+                errorMessage = `Bucket "${this.bucketName}" does not exist`;
+            } else if (error.code === 'AccessDenied' || error.statusCode === 403) {
+                errorMessage = 'Access denied. Check IAM permissions for s3:PutObject';
+            } else if (error.code === 'InvalidAccessKeyId') {
+                errorMessage = 'Invalid AWS Access Key ID';
+            } else if (error.code === 'SignatureDoesNotMatch') {
+                errorMessage = 'AWS Secret Key is incorrect';
+            }
+            
+            this.showMessage('Upload failed: ' + errorMessage, 'error');
         } finally {
             uploadProgress.style.display = 'none';
         }
@@ -308,6 +388,8 @@ class S3Portal {
         fileList.innerHTML = '<div class="file-item"><div class="loading"></div>Loading...</div>';
 
         try {
+            console.log('Listing objects in:', this.bucketName + '/' + prefix);
+            
             const params = {
                 Bucket: this.bucketName,
                 Prefix: prefix,
@@ -315,6 +397,13 @@ class S3Portal {
             };
 
             const data = await this.s3.listObjectsV2(params).promise();
+            
+            console.log('List response:', {
+                prefix: data.Prefix,
+                fileCount: data.Contents ? data.Contents.length : 0,
+                folderCount: data.CommonPrefixes ? data.CommonPrefixes.length : 0
+            });
+            
             fileList.innerHTML = '';
 
             // Add parent directory link if not at root
@@ -350,8 +439,47 @@ class S3Portal {
 
         } catch (error) {
             console.error('Error listing objects:', error);
-            fileList.innerHTML = '<div class="file-item"><div class="file-info"><div class="file-name" style="color: red;">Error loading files: ' + error.message + '</div></div></div>';
-            this.showMessage('Error loading files: ' + error.message, 'error');
+            console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                statusCode: error.statusCode,
+                bucket: this.bucketName,
+                prefix: prefix,
+                requestId: error.requestId
+            });
+            
+            let errorMessage = error.message;
+            
+            // Provide more specific error messages
+            if (error.code === 'NoSuchBucket') {
+                errorMessage = `Bucket "${this.bucketName}" does not exist or is not accessible`;
+            } else if (error.code === 'AccessDenied' || error.statusCode === 403) {
+                errorMessage = `Access denied to bucket "${this.bucketName}". Check IAM permissions for s3:ListBucket.`;
+            } else if (error.code === 'InvalidAccessKeyId') {
+                errorMessage = 'Invalid AWS Access Key ID. Check your credentials.';
+            } else if (error.code === 'SignatureDoesNotMatch') {
+                errorMessage = 'AWS Secret Key is incorrect. Check your credentials.';
+            } else if (error.code === 'CredentialsError') {
+                errorMessage = 'AWS credentials not properly configured.';
+            }
+            
+            fileList.innerHTML = `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-name" style="color: red;">Error loading files</div>
+                        <div class="file-meta">${errorMessage}</div>
+                        <div class="file-meta" style="margin-top: 10px;">
+                            <strong>Troubleshooting:</strong><br>
+                            • Verify bucket name: ${this.bucketName}<br>
+                            • Check IAM user has s3:ListBucket permission<br>
+                            • Verify credentials are correct<br>
+                            • Check bucket region matches AWS_REGION<br>
+                            • Ensure CORS is configured on bucket
+                        </div>
+                    </div>
+                </div>
+            `;
+            this.showMessage('Error loading files: ' + errorMessage, 'error');
         }
     }
 
@@ -457,28 +585,225 @@ class S3Portal {
     displayJsonFile(content, key) {
         try {
             const jsonData = JSON.parse(content);
-            const formatted = JSON.stringify(jsonData, null, 2);
-            const escapedContent = content.replace(/'/g, "\\'").replace(/\n/g, '\\n').replace(/\r/g, '');
+            const escapedContent = content.replace(/`/g, '\\`');
+            
+            // Generate tabular view
+            const tableHtml = this.generateJsonTable(jsonData);
             
             document.getElementById('fileContent').innerHTML = `
-                <div class="json-viewer">
-                    <pre><code>${this.escapeHtml(formatted)}</code></pre>
-                </div>
-                <div style="margin-top: 15px;">
-                    <button class="btn btn-primary" onclick="s3Portal.copyToClipboard(\`${content.replace(/`/g, '\\`')}\`)">
+                <div class="json-display-controls">
+                    <button class="btn btn-secondary" id="viewToggle" onclick="s3Portal.toggleJsonView()">
+                        <span id="viewToggleText">📊 Switch to Raw JSON</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="s3Portal.copyToClipboard(\`${escapedContent}\`)">
                         📋 Copy JSON
                     </button>
                     <button class="btn btn-secondary" onclick="s3Portal.downloadFile('${key}')">
                         💾 Download
                     </button>
                 </div>
+                <div id="jsonTableView" class="json-table-view">
+                    ${tableHtml}
+                </div>
+                <div id="jsonRawView" class="json-raw-view" style="display: none;">
+                    <pre><code>${this.escapeHtml(JSON.stringify(jsonData, null, 2))}</code></pre>
+                </div>
             `;
         } catch (error) {
             document.getElementById('fileContent').innerHTML = `
-                <div class="error">Invalid JSON format: ${error.message}</div>
-                <pre>${this.escapeHtml(content)}</pre>
+                <div class="error-message">
+                    <h3>❌ Invalid JSON Format</h3>
+                    <p>${error.message}</p>
+                </div>
+                <pre class="error-content">${this.escapeHtml(content)}</pre>
             `;
         }
+    }
+
+    toggleJsonView() {
+        const tableView = document.getElementById('jsonTableView');
+        const rawView = document.getElementById('jsonRawView');
+        const toggleText = document.getElementById('viewToggleText');
+        
+        if (tableView.style.display === 'none') {
+            tableView.style.display = 'block';
+            rawView.style.display = 'none';
+            toggleText.textContent = '📊 Switch to Raw JSON';
+        } else {
+            tableView.style.display = 'none';
+            rawView.style.display = 'block';
+            toggleText.textContent = '📋 Switch to Table View';
+        }
+    }
+
+    generateJsonTable(data, depth = 0) {
+        if (Array.isArray(data)) {
+            return this.generateArrayTable(data, depth);
+        } else if (typeof data === 'object' && data !== null) {
+            return this.generateObjectTable(data, depth);
+        } else {
+            return `<div class="json-primitive">${this.formatValue(data)}</div>`;
+        }
+    }
+
+    generateObjectTable(obj, depth = 0) {
+        const entries = Object.entries(obj);
+        
+        if (entries.length === 0) {
+            return '<div class="json-empty">Empty Object</div>';
+        }
+
+        let html = '<table class="json-table">';
+        html += '<thead><tr><th class="json-table-key">Key</th><th class="json-table-value">Value</th></tr></thead>';
+        html += '<tbody>';
+
+        for (const [key, value] of entries) {
+            html += '<tr>';
+            html += `<td class="json-table-key"><span class="key-badge">${this.escapeHtml(key)}</span></td>`;
+            html += '<td class="json-table-value">';
+            
+            if (Array.isArray(value)) {
+                if (value.length === 0) {
+                    html += '<span class="value-empty">Empty Array</span>';
+                } else if (this.isSimpleArray(value)) {
+                    html += `<span class="value-array">${value.map(v => this.formatValue(v)).join(', ')}</span>`;
+                } else {
+                    html += this.generateArrayTable(value, depth + 1);
+                }
+            } else if (typeof value === 'object' && value !== null) {
+                if (Object.keys(value).length === 0) {
+                    html += '<span class="value-empty">Empty Object</span>';
+                } else if (depth < 2) {
+                    html += this.generateObjectTable(value, depth + 1);
+                } else {
+                    html += `<details class="json-collapsible"><summary>View nested object (${Object.keys(value).length} keys)</summary>${this.generateObjectTable(value, depth + 1)}</details>`;
+                }
+            } else {
+                html += this.formatValue(value);
+            }
+            
+            html += '</td>';
+            html += '</tr>';
+        }
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    generateArrayTable(arr, depth = 0) {
+        if (arr.length === 0) {
+            return '<div class="json-empty">Empty Array</div>';
+        }
+
+        // Check if array contains objects with similar structure
+        if (arr.every(item => typeof item === 'object' && item !== null && !Array.isArray(item))) {
+            return this.generateArrayOfObjectsTable(arr, depth);
+        }
+
+        // Simple array
+        let html = '<div class="json-array-container">';
+        arr.forEach((item, index) => {
+            html += `<div class="json-array-item">`;
+            html += `<span class="array-index">[${index}]</span>`;
+            
+            if (typeof item === 'object' && item !== null) {
+                html += this.generateJsonTable(item, depth + 1);
+            } else {
+                html += this.formatValue(item);
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+        
+        return html;
+    }
+
+    generateArrayOfObjectsTable(arr, depth = 0) {
+        // Get all unique keys from all objects
+        const allKeys = new Set();
+        arr.forEach(obj => {
+            Object.keys(obj).forEach(key => allKeys.add(key));
+        });
+
+        const keys = Array.from(allKeys);
+
+        let html = '<table class="json-table json-array-table">';
+        html += '<thead><tr>';
+        html += '<th class="json-table-index">#</th>';
+        keys.forEach(key => {
+            html += `<th class="json-table-key">${this.escapeHtml(key)}</th>`;
+        });
+        html += '</tr></thead>';
+        html += '<tbody>';
+
+        arr.forEach((obj, index) => {
+            html += '<tr>';
+            html += `<td class="json-table-index">${index + 1}</td>`;
+            
+            keys.forEach(key => {
+                html += '<td class="json-table-value">';
+                const value = obj[key];
+                
+                if (value === undefined) {
+                    html += '<span class="value-undefined">—</span>';
+                } else if (typeof value === 'object' && value !== null) {
+                    if (Array.isArray(value)) {
+                        if (value.length === 0) {
+                            html += '<span class="value-empty">[]</span>';
+                        } else if (this.isSimpleArray(value)) {
+                            html += `<span class="value-array">${value.map(v => this.formatValue(v)).join(', ')}</span>`;
+                        } else {
+                            html += `<details class="json-collapsible"><summary>View array (${value.length} items)</summary>${this.generateArrayTable(value, depth + 1)}</details>`;
+                        }
+                    } else {
+                        if (Object.keys(value).length === 0) {
+                            html += '<span class="value-empty">{}</span>';
+                        } else {
+                            html += `<details class="json-collapsible"><summary>View object (${Object.keys(value).length} keys)</summary>${this.generateObjectTable(value, depth + 1)}</details>`;
+                        }
+                    }
+                } else {
+                    html += this.formatValue(value);
+                }
+                html += '</td>';
+            });
+            
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+        return html;
+    }
+
+    isSimpleArray(arr) {
+        if (arr.length > 10) return false;
+        return arr.every(item => {
+            const type = typeof item;
+            return type === 'string' || type === 'number' || type === 'boolean' || item === null;
+        });
+    }
+
+    formatValue(value) {
+        if (value === null) {
+            return '<span class="value-null">null</span>';
+        } else if (value === undefined) {
+            return '<span class="value-undefined">undefined</span>';
+        } else if (typeof value === 'boolean') {
+            return `<span class="value-boolean">${value}</span>`;
+        } else if (typeof value === 'number') {
+            return `<span class="value-number">${value}</span>`;
+        } else if (typeof value === 'string') {
+            // Check if it's a URL
+            if (value.match(/^https?:\/\//)) {
+                return `<a href="${value}" target="_blank" class="value-link">${this.escapeHtml(value)}</a>`;
+            }
+            // Check if it's a date
+            if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
+                return `<span class="value-date">${this.escapeHtml(value)}</span>`;
+            }
+            return `<span class="value-string">${this.escapeHtml(value)}</span>`;
+        }
+        return `<span class="value-unknown">${this.escapeHtml(String(value))}</span>`;
     }
 
     displayTextFile(content, key) {
