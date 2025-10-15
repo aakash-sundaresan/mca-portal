@@ -1,10 +1,11 @@
-// MCA Portal - S3 Upload & Display with Amplify Environment Variables
+// MCA Portal - S3 Upload & Display with Document Type Selection
 class S3Portal {
     constructor() {
         this.s3 = null;
         this.selectedFile = null;
         this.currentPath = 'auditors-report/json/';
         this.pathHistory = [];
+        this.documentType = 'auditors-report'; // Default document type
         this.uploadPath = 'auditors-report/uploads/';
         this.resultsPath = 'auditors-report/json/';
         this.pollingInterval = null;
@@ -15,6 +16,12 @@ class S3Portal {
     }
 
     initializeEventListeners() {
+        // Document type selection
+        const docTypeRadios = document.querySelectorAll('input[name="docType"]');
+        docTypeRadios.forEach(radio => {
+            radio.addEventListener('change', this.handleDocumentTypeChange.bind(this));
+        });
+
         // Upload functionality
         const uploadArea = document.getElementById('uploadArea');
         const fileInput = document.getElementById('fileInput');
@@ -44,6 +51,27 @@ class S3Portal {
                 this.navigateToPath();
             }
         });
+    }
+
+    handleDocumentTypeChange(e) {
+        this.documentType = e.target.value;
+        
+        // Update paths based on selected document type
+        this.uploadPath = `${this.documentType}/uploads/`;
+        this.resultsPath = `${this.documentType}/json/`;
+        
+        // Update UI to show current paths
+        document.getElementById('uploadPath').textContent = `bucket/${this.uploadPath}`;
+        document.getElementById('resultsPath').textContent = `bucket/${this.resultsPath}`;
+        document.getElementById('currentPathDisplay').textContent = `bucket/${this.resultsPath}`;
+        
+        // Navigate to the results path for the selected document type
+        this.navigateToPathDirect(this.resultsPath);
+        
+        // Update the path input field
+        document.getElementById('currentPath').value = this.resultsPath;
+        
+        this.showMessage(`Switched to ${this.documentType === 'auditors-report' ? "Auditor's Report" : 'AOC-4'}`, 'success');
     }
 
     initializeAWS() {
@@ -190,6 +218,7 @@ class S3Portal {
             const key = `${this.uploadPath}${fileName}`;
             
             console.log('Starting upload...');
+            console.log('Document Type:', this.documentType);
             console.log('Bucket:', this.bucketName);
             console.log('Key:', key);
             console.log('File size:', this.selectedFile.size);
@@ -213,7 +242,7 @@ class S3Portal {
             const result = await upload.promise();
             
             console.log('Upload successful:', result);
-            this.showMessage('File uploaded successfully! Processing may take a few minutes...', 'success');
+            this.showMessage(`File uploaded successfully to ${this.documentType}! Processing may take a few minutes...`, 'success');
             
             // Show upload status and start polling
             document.getElementById('uploadStatus').style.display = 'block';
@@ -351,6 +380,7 @@ class S3Portal {
 
         this.currentPath = path;
         document.getElementById('currentPath').value = path;
+        document.getElementById('currentPathDisplay').textContent = `bucket/${path}`;
         this.listObjects(path);
     }
 
@@ -359,6 +389,7 @@ class S3Portal {
             const previousPath = this.pathHistory.pop();
             this.currentPath = previousPath;
             document.getElementById('currentPath').value = previousPath;
+            document.getElementById('currentPathDisplay').textContent = `bucket/${previousPath}`;
             this.listObjects(previousPath);
         } else {
             this.navigateToPathDirect('');

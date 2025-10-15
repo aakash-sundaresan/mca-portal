@@ -17,12 +17,33 @@
         </header>
 
         <div class="main-content">
+            <!-- Document Type Selection -->
+            <section class="document-type-section">
+                <h2>Select Document Type</h2>
+                <div class="document-type-selector">
+                    <label class="radio-option">
+                        <input type="radio" name="docType" value="auditors-report" checked>
+                        <span class="radio-label">
+                            <span class="radio-title">Auditor's Report</span>
+                            <span class="radio-description">Upload: auditors-report/uploads/ | Results: auditors-report/json/</span>
+                        </span>
+                    </label>
+                    <label class="radio-option">
+                        <input type="radio" name="docType" value="aoc4">
+                        <span class="radio-label">
+                            <span class="radio-title">AOC-4</span>
+                            <span class="radio-description">Upload: aoc4/uploads/ | Results: aoc4/json/</span>
+                        </span>
+                    </label>
+                </div>
+            </section>
+
             <!-- File Upload Section -->
             <section class="upload-section">
                 <h2>Upload Document for Processing</h2>
                 <div class="upload-info">
-                    <p><strong>Upload Path:</strong> <code>bucket/auditors-report/uploads/</code></p>
-                    <p><strong>Results Path:</strong> <code>bucket/auditors-report/json/</code></p>
+                    <p><strong>Upload Path:</strong> <code id="uploadPath">bucket/auditors-report/uploads/</code></p>
+                    <p><strong>Results Path:</strong> <code id="resultsPath">bucket/auditors-report/json/</code></p>
                     <p>Files uploaded here will be processed and results will appear in the JSON results below.</p>
                 </div>
                 <div class="upload-area" id="uploadArea">
@@ -49,7 +70,7 @@
             <section class="browser-section">
                 <h2>JSON Results Browser</h2>
                 <div class="browser-info">
-                    <p><strong>Current Path:</strong> <code>bucket/auditors-report/json/</code></p>
+                    <p><strong>Current Path:</strong> <code id="currentPathDisplay">bucket/auditors-report/json/</code></p>
                     <p>Browse and view processed JSON results from uploaded documents.</p>
                 </div>
                 <div class="browser-controls">
