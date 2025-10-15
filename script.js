@@ -613,413 +613,224 @@ class S3Portal {
         }
     }
 
-    // Replace the displayJsonFile method in your script.js with this version
-
-displayJsonFile(content, key) {
-    try {
-        const jsonData = JSON.parse(content);
-        const escapedContent = content.replace(/`/g, '\\`');
-        
-        // Generate flat table view
-        const flatData = this.flattenJson(jsonData);
-        const tableHtml = this.generateFlatTable(flatData);
-        
-        document.getElementById('fileContent').innerHTML = `
-            <div class="json-display-controls">
-                <button class="btn btn-secondary" id="viewToggle" onclick="s3Portal.toggleJsonView()">
-                    <span id="viewToggleText">📊 Switch to Raw JSON</span>
-                </button>
-                <button class="btn btn-primary" onclick="s3Portal.copyToClipboard(\`${escapedContent}\`)">
-                    📋 Copy JSON
-                </button>
-                <button class="btn btn-secondary" onclick="s3Portal.downloadFile('${key}')">
-                    💾 Download
-                </button>
-                <button class="btn btn-secondary" id="searchToggle" onclick="s3Portal.toggleSearch()">
-                    🔍 Search
-                </button>
-            </div>
-            <div id="searchBox" class="search-box" style="display: none;">
-                <input type="text" id="jsonSearch" placeholder="Search by field path or value..." onkeyup="s3Portal.filterJsonTable()">
-                <span class="search-results-count" id="searchCount"></span>
-            </div>
-            <div id="jsonTableView" class="json-table-view">
-                ${tableHtml}
-            </div>
-            <div id="jsonRawView" class="json-raw-view" style="display: none;">
-                <pre><code>${this.escapeHtml(JSON.stringify(jsonData, null, 2))}</code></pre>
-            </div>
-        `;
-    } catch (error) {
-        document.getElementById('fileContent').innerHTML = `
-            <div class="error-message">
-                <h3>❌ Invalid JSON Format</h3>
-                <p>${error.message}</p>
-            </div>
-            <pre class="error-content">${this.escapeHtml(content)}</pre>
-        `;
-    }
-}
-
-// Flatten nested JSON into dot-notation paths
-flattenJson(obj, prefix = '', result = []) {
-    for (const key in obj) {
-        if (obj.hasOwnProperty(key)) {
-            const newKey = prefix ? `${prefix}.${key}` : key;
-            const value = obj[key];
+    displayJsonFile(content, key) {
+        try {
+            const jsonData = JSON.parse(content);
+            const escapedContent = content.replace(/`/g, '\\`');
             
-            if (value === null || value === undefined) {
-                result.push({ path: newKey, value: value, type: 'null' });
-            } else if (Array.isArray(value)) {
-                if (value.length === 0) {
-                    result.push({ path: newKey, value: '[]', type: 'empty-array' });
+            // Generate flat table view
+            const flatData = this.flattenJson(jsonData);
+            const tableHtml = this.generateFlatTable(flatData);
+            
+            document.getElementById('fileContent').innerHTML = `
+                <div class="json-display-controls">
+                    <button class="btn btn-secondary" id="viewToggle" onclick="s3Portal.toggleJsonView()">
+                        <span id="viewToggleText">📊 Switch to Raw JSON</span>
+                    </button>
+                    <button class="btn btn-primary" onclick="s3Portal.copyToClipboard(\`${escapedContent}\`)">
+                        📋 Copy JSON
+                    </button>
+                    <button class="btn btn-secondary" onclick="s3Portal.downloadFile('${key}')">
+                        💾 Download
+                    </button>
+                    <button class="btn btn-secondary" id="searchToggle" onclick="s3Portal.toggleSearch()">
+                        🔍 Search
+                    </button>
+                </div>
+                <div id="searchBox" class="search-box" style="display: none;">
+                    <input type="text" id="jsonSearch" placeholder="Search by field path or value..." onkeyup="s3Portal.filterJsonTable()">
+                    <span class="search-results-count" id="searchCount"></span>
+                </div>
+                <div id="jsonTableView" class="json-table-view">
+                    ${tableHtml}
+                </div>
+                <div id="jsonRawView" class="json-raw-view" style="display: none;">
+                    <pre><code>${this.escapeHtml(JSON.stringify(jsonData, null, 2))}</code></pre>
+                </div>
+            `;
+        } catch (error) {
+            document.getElementById('fileContent').innerHTML = `
+                <div class="error-message">
+                    <h3>❌ Invalid JSON Format</h3>
+                    <p>${error.message}</p>
+                </div>
+                <pre class="error-content">${this.escapeHtml(content)}</pre>
+            `;
+        }
+    }
+
+    // Flatten nested JSON into dot-notation paths
+    flattenJson(obj, prefix = '', result = []) {
+        for (const key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                const newKey = prefix ? `${prefix}.${key}` : key;
+                const value = obj[key];
+                
+                if (value === null || value === undefined) {
+                    result.push({ path: newKey, value: value, type: 'null' });
+                } else if (Array.isArray(value)) {
+                    if (value.length === 0) {
+                        result.push({ path: newKey, value: '[]', type: 'empty-array' });
+                    } else {
+                        // Add array summary
+                        result.push({ path: newKey, value: `Array(${value.length})`, type: 'array-summary' });
+                        // Flatten array items
+                        value.forEach((item, index) => {
+                            if (typeof item === 'object' && item !== null) {
+                                this.flattenJson(item, `${newKey}[${index}]`, result);
+                            } else {
+                                result.push({ path: `${newKey}[${index}]`, value: item, type: typeof item });
+                            }
+                        });
+                    }
+                } else if (typeof value === 'object') {
+                    if (Object.keys(value).length === 0) {
+                        result.push({ path: newKey, value: '{}', type: 'empty-object' });
+                    } else {
+                        this.flattenJson(value, newKey, result);
+                    }
                 } else {
-                    // Add array summary
-                    result.push({ path: newKey, value: `Array(${value.length})`, type: 'array-summary' });
-                    // Flatten array items
-                    value.forEach((item, index) => {
-                        if (typeof item === 'object' && item !== null) {
-                            this.flattenJson(item, `${newKey}[${index}]`, result);
-                        } else {
-                            result.push({ path: `${newKey}[${index}]`, value: item, type: typeof item });
-                        }
-                    });
+                    result.push({ path: newKey, value: value, type: typeof value });
                 }
-            } else if (typeof value === 'object') {
-                if (Object.keys(value).length === 0) {
-                    result.push({ path: newKey, value: '{}', type: 'empty-object' });
-                } else {
-                    this.flattenJson(value, newKey, result);
-                }
-            } else {
-                result.push({ path: newKey, value: value, type: typeof value });
             }
         }
-    }
-    return result;
-}
-
-// Generate simple flat table
-generateFlatTable(flatData) {
-    if (flatData.length === 0) {
-        return '<div class="json-empty">No data to display</div>';
+        return result;
     }
 
-    let html = '<table class="json-flat-table" id="jsonFlatTable">';
-    html += '<thead><tr>';
-    html += '<th class="flat-table-index">#</th>';
-    html += '<th class="flat-table-path">Field Path</th>';
-    html += '<th class="flat-table-value">Value</th>';
-    html += '<th class="flat-table-type">Type</th>';
-    html += '</tr></thead>';
-    html += '<tbody>';
+    // Generate simple flat table
+    generateFlatTable(flatData) {
+        if (flatData.length === 0) {
+            return '<div class="json-empty">No data to display</div>';
+        }
 
-    flatData.forEach((item, index) => {
-        html += '<tr class="flat-table-row">';
-        html += `<td class="flat-table-index">${index + 1}</td>`;
-        html += `<td class="flat-table-path"><code>${this.escapeHtml(item.path)}</code></td>`;
-        html += `<td class="flat-table-value">${this.formatFlatValue(item.value, item.type)}</td>`;
-        html += `<td class="flat-table-type"><span class="type-badge type-${item.type}">${item.type}</span></td>`;
-        html += '</tr>';
-    });
+        let html = '<table class="json-flat-table" id="jsonFlatTable">';
+        html += '<thead><tr>';
+        html += '<th class="flat-table-index">#</th>';
+        html += '<th class="flat-table-path">Field Path</th>';
+        html += '<th class="flat-table-value">Value</th>';
+        html += '<th class="flat-table-type">Type</th>';
+        html += '</tr></thead>';
+        html += '<tbody>';
 
-    html += '</tbody></table>';
-    
-    // Add summary
-    const summary = `<div class="json-summary">Total fields: <strong>${flatData.length}</strong></div>`;
-    
-    return summary + html;
-}
+        flatData.forEach((item, index) => {
+            html += '<tr class="flat-table-row">';
+            html += `<td class="flat-table-index">${index + 1}</td>`;
+            html += `<td class="flat-table-path"><code>${this.escapeHtml(item.path)}</code></td>`;
+            html += `<td class="flat-table-value">${this.formatFlatValue(item.value, item.type)}</td>`;
+            html += `<td class="flat-table-type"><span class="type-badge type-${item.type}">${item.type}</span></td>`;
+            html += '</tr>';
+        });
 
-// Format values for flat table
-formatFlatValue(value, type) {
-    if (value === null || value === undefined) {
-        return '<span class="value-null">null</span>';
-    }
-    
-    if (type === 'empty-array' || type === 'empty-object') {
-        return `<span class="value-empty">${this.escapeHtml(String(value))}</span>`;
-    }
-    
-    if (type === 'array-summary') {
-        return `<span class="value-array-summary">${this.escapeHtml(String(value))}</span>`;
-    }
-    
-    if (type === 'boolean') {
-        return `<span class="value-boolean">${value}</span>`;
-    }
-    
-    if (type === 'number') {
-        return `<span class="value-number">${value}</span>`;
-    }
-    
-    if (type === 'string') {
-        const strValue = String(value);
+        html += '</tbody></table>';
         
-        // Check if it's a URL
-        if (strValue.match(/^https?:\/\//)) {
-            return `<a href="${strValue}" target="_blank" class="value-link">${this.escapeHtml(strValue)}</a>`;
+        // Add summary
+        const summary = `<div class="json-summary">Total fields: <strong>${flatData.length}</strong></div>`;
+        
+        return summary + html;
+    }
+
+    // Format values for flat table
+    formatFlatValue(value, type) {
+        if (value === null || value === undefined) {
+            return '<span class="value-null">null</span>';
         }
         
-        // Check if it's a date
-        if (strValue.match(/^\d{4}-\d{2}-\d{2}/)) {
-            return `<span class="value-date">${this.escapeHtml(strValue)}</span>`;
+        if (type === 'empty-array' || type === 'empty-object') {
+            return `<span class="value-empty">${this.escapeHtml(String(value))}</span>`;
         }
         
-        // Regular string
-        return `<span class="value-string">"${this.escapeHtml(strValue)}"</span>`;
-    }
-    
-    return `<span class="value-unknown">${this.escapeHtml(String(value))}</span>`;
-}
-
-// Toggle search box
-toggleSearch() {
-    const searchBox = document.getElementById('searchBox');
-    const searchInput = document.getElementById('jsonSearch');
-    
-    if (searchBox.style.display === 'none') {
-        searchBox.style.display = 'block';
-        searchInput.focus();
-    } else {
-        searchBox.style.display = 'none';
-        searchInput.value = '';
-        this.filterJsonTable(); // Reset filter
-    }
-}
-
-// Filter table based on search
-filterJsonTable() {
-    const searchInput = document.getElementById('jsonSearch');
-    const searchText = searchInput.value.toLowerCase();
-    const table = document.getElementById('jsonFlatTable');
-    const rows = table.querySelectorAll('tbody tr');
-    let visibleCount = 0;
-    
-    rows.forEach(row => {
-        const path = row.querySelector('.flat-table-path').textContent.toLowerCase();
-        const value = row.querySelector('.flat-table-value').textContent.toLowerCase();
+        if (type === 'array-summary') {
+            return `<span class="value-array-summary">${this.escapeHtml(String(value))}</span>`;
+        }
         
-        if (path.includes(searchText) || value.includes(searchText)) {
-            row.style.display = '';
-            visibleCount++;
+        if (type === 'boolean') {
+            return `<span class="value-boolean">${value}</span>`;
+        }
+        
+        if (type === 'number') {
+            return `<span class="value-number">${value}</span>`;
+        }
+        
+        if (type === 'string') {
+            const strValue = String(value);
+            
+            // Check if it's a URL
+            if (strValue.match(/^https?:\/\//)) {
+                return `<a href="${strValue}" target="_blank" class="value-link">${this.escapeHtml(strValue)}</a>`;
+            }
+            
+            // Check if it's a date
+            if (strValue.match(/^\d{4}-\d{2}-\d{2}/)) {
+                return `<span class="value-date">${this.escapeHtml(strValue)}</span>`;
+            }
+            
+            // Regular string
+            return `<span class="value-string">"${this.escapeHtml(strValue)}"</span>`;
+        }
+        return `<span class="value-unknown">${this.escapeHtml(String(value))}</span>`;
+    }
+
+    // Toggle search box
+    toggleSearch() {
+        const searchBox = document.getElementById('searchBox');
+        const searchInput = document.getElementById('jsonSearch');
+        
+        if (searchBox.style.display === 'none') {
+            searchBox.style.display = 'block';
+            searchInput.focus();
         } else {
-            row.style.display = 'none';
+            searchBox.style.display = 'none';
+            searchInput.value = '';
+            this.filterJsonTable(); // Reset filter
         }
-    });
-    
-    // Update search count
-    const searchCount = document.getElementById('searchCount');
-    if (searchText) {
-        searchCount.textContent = `${visibleCount} of ${rows.length} rows`;
-    } else {
-        searchCount.textContent = '';
     }
-}
 
-toggleJsonView() {
-    const tableView = document.getElementById('jsonTableView');
-    const rawView = document.getElementById('jsonRawView');
-    const toggleText = document.getElementById('viewToggleText');
-    const searchBox = document.getElementById('searchBox');
-    
-    if (tableView.style.display === 'none') {
-        tableView.style.display = 'block';
-        rawView.style.display = 'none';
-        toggleText.textContent = '📊 Switch to Raw JSON';
-        if (searchBox) searchBox.style.display = 'none';
-    } else {
-        tableView.style.display = 'none';
-        rawView.style.display = 'block';
-        toggleText.textContent = '📋 Switch to Table View';
-        if (searchBox) searchBox.style.display = 'none';
+    // Filter table based on search
+    filterJsonTable() {
+        const searchInput = document.getElementById('jsonSearch');
+        const searchText = searchInput.value.toLowerCase();
+        const table = document.getElementById('jsonFlatTable');
+        const rows = table.querySelectorAll('tbody tr');
+        let visibleCount = 0;
+        
+        rows.forEach(row => {
+            const path = row.querySelector('.flat-table-path').textContent.toLowerCase();
+            const value = row.querySelector('.flat-table-value').textContent.toLowerCase();
+            
+            if (path.includes(searchText) || value.includes(searchText)) {
+                row.style.display = '';
+                visibleCount++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Update search count
+        const searchCount = document.getElementById('searchCount');
+        if (searchText) {
+            searchCount.textContent = `${visibleCount} of ${rows.length} rows`;
+        } else {
+            searchCount.textContent = '';
+        }
     }
-}
 
     toggleJsonView() {
         const tableView = document.getElementById('jsonTableView');
         const rawView = document.getElementById('jsonRawView');
         const toggleText = document.getElementById('viewToggleText');
+        const searchBox = document.getElementById('searchBox');
         
         if (tableView.style.display === 'none') {
             tableView.style.display = 'block';
             rawView.style.display = 'none';
             toggleText.textContent = '📊 Switch to Raw JSON';
+            if (searchBox) searchBox.style.display = 'none';
         } else {
             tableView.style.display = 'none';
             rawView.style.display = 'block';
             toggleText.textContent = '📋 Switch to Table View';
+            if (searchBox) searchBox.style.display = 'none';
         }
-    }
-
-    generateJsonTable(data, depth = 0) {
-        if (Array.isArray(data)) {
-            return this.generateArrayTable(data, depth);
-        } else if (typeof data === 'object' && data !== null) {
-            return this.generateObjectTable(data, depth);
-        } else {
-            return `<div class="json-primitive">${this.formatValue(data)}</div>`;
-        }
-    }
-
-    generateObjectTable(obj, depth = 0) {
-        const entries = Object.entries(obj);
-        
-        if (entries.length === 0) {
-            return '<div class="json-empty">Empty Object</div>';
-        }
-
-        let html = '<table class="json-table">';
-        html += '<thead><tr><th class="json-table-key">Key</th><th class="json-table-value">Value</th></tr></thead>';
-        html += '<tbody>';
-
-        for (const [key, value] of entries) {
-            html += '<tr>';
-            html += `<td class="json-table-key"><span class="key-badge">${this.escapeHtml(key)}</span></td>`;
-            html += '<td class="json-table-value">';
-            
-            if (Array.isArray(value)) {
-                if (value.length === 0) {
-                    html += '<span class="value-empty">Empty Array</span>';
-                } else if (this.isSimpleArray(value)) {
-                    html += `<span class="value-array">${value.map(v => this.formatValue(v)).join(', ')}</span>`;
-                } else {
-                    html += this.generateArrayTable(value, depth + 1);
-                }
-            } else if (typeof value === 'object' && value !== null) {
-                if (Object.keys(value).length === 0) {
-                    html += '<span class="value-empty">Empty Object</span>';
-                } else if (depth < 2) {
-                    html += this.generateObjectTable(value, depth + 1);
-                } else {
-                    html += `<details class="json-collapsible"><summary>View nested object (${Object.keys(value).length} keys)</summary>${this.generateObjectTable(value, depth + 1)}</details>`;
-                }
-            } else {
-                html += this.formatValue(value);
-            }
-            
-            html += '</td>';
-            html += '</tr>';
-        }
-
-        html += '</tbody></table>';
-        return html;
-    }
-
-    generateArrayTable(arr, depth = 0) {
-        if (arr.length === 0) {
-            return '<div class="json-empty">Empty Array</div>';
-        }
-
-        // Check if array contains objects with similar structure
-        if (arr.every(item => typeof item === 'object' && item !== null && !Array.isArray(item))) {
-            return this.generateArrayOfObjectsTable(arr, depth);
-        }
-
-        // Simple array
-        let html = '<div class="json-array-container">';
-        arr.forEach((item, index) => {
-            html += `<div class="json-array-item">`;
-            html += `<span class="array-index">[${index}]</span>`;
-            
-            if (typeof item === 'object' && item !== null) {
-                html += this.generateJsonTable(item, depth + 1);
-            } else {
-                html += this.formatValue(item);
-            }
-            html += '</div>';
-        });
-        html += '</div>';
-        
-        return html;
-    }
-
-    generateArrayOfObjectsTable(arr, depth = 0) {
-        // Get all unique keys from all objects
-        const allKeys = new Set();
-        arr.forEach(obj => {
-            Object.keys(obj).forEach(key => allKeys.add(key));
-        });
-
-        const keys = Array.from(allKeys);
-
-        let html = '<table class="json-table json-array-table">';
-        html += '<thead><tr>';
-        html += '<th class="json-table-index">#</th>';
-        keys.forEach(key => {
-            html += `<th class="json-table-key">${this.escapeHtml(key)}</th>`;
-        });
-        html += '</tr></thead>';
-        html += '<tbody>';
-
-        arr.forEach((obj, index) => {
-            html += '<tr>';
-            html += `<td class="json-table-index">${index + 1}</td>`;
-            
-            keys.forEach(key => {
-                html += '<td class="json-table-value">';
-                const value = obj[key];
-                
-                if (value === undefined) {
-                    html += '<span class="value-undefined">—</span>';
-                } else if (typeof value === 'object' && value !== null) {
-                    if (Array.isArray(value)) {
-                        if (value.length === 0) {
-                            html += '<span class="value-empty">[]</span>';
-                        } else if (this.isSimpleArray(value)) {
-                            html += `<span class="value-array">${value.map(v => this.formatValue(v)).join(', ')}</span>`;
-                        } else {
-                            html += `<details class="json-collapsible"><summary>View array (${value.length} items)</summary>${this.generateArrayTable(value, depth + 1)}</details>`;
-                        }
-                    } else {
-                        if (Object.keys(value).length === 0) {
-                            html += '<span class="value-empty">{}</span>';
-                        } else {
-                            html += `<details class="json-collapsible"><summary>View object (${Object.keys(value).length} keys)</summary>${this.generateObjectTable(value, depth + 1)}</details>`;
-                        }
-                    }
-                } else {
-                    html += this.formatValue(value);
-                }
-                html += '</td>';
-            });
-            
-            html += '</tr>';
-        });
-
-        html += '</tbody></table>';
-        return html;
-    }
-
-    isSimpleArray(arr) {
-        if (arr.length > 10) return false;
-        return arr.every(item => {
-            const type = typeof item;
-            return type === 'string' || type === 'number' || type === 'boolean' || item === null;
-        });
-    }
-
-    formatValue(value) {
-        if (value === null) {
-            return '<span class="value-null">null</span>';
-        } else if (value === undefined) {
-            return '<span class="value-undefined">undefined</span>';
-        } else if (typeof value === 'boolean') {
-            return `<span class="value-boolean">${value}</span>`;
-        } else if (typeof value === 'number') {
-            return `<span class="value-number">${value}</span>`;
-        } else if (typeof value === 'string') {
-            // Check if it's a URL
-            if (value.match(/^https?:\/\//)) {
-                return `<a href="${value}" target="_blank" class="value-link">${this.escapeHtml(value)}</a>`;
-            }
-            // Check if it's a date
-            if (value.match(/^\d{4}-\d{2}-\d{2}/)) {
-                return `<span class="value-date">${this.escapeHtml(value)}</span>`;
-            }
-            return `<span class="value-string">${this.escapeHtml(value)}</span>`;
-        }
-        return `<span class="value-unknown">${this.escapeHtml(String(value))}</span>`;
     }
 
     displayTextFile(content, key) {
