@@ -8,13 +8,30 @@ export function formatFileSize(bytes) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
   
+  // Export the cleaning function
+  export function cleanFieldPath(path) {
+    if (!path) return path;
+    
+    return String(path)
+      .replace(/^extracted_fields\./gi, '')
+      .replace(/^metadata\./gi, '')
+      .replace(/^data\./gi, '')
+      .replace(/^fields\./gi, '')
+      .replace(/^document\./gi, '')
+      .replace(/^extracted_fields_/gi, '')
+      .replace(/^metadata_/gi, '')
+      .replace(/^data_/gi, '')
+      .replace(/^fields_/gi, '')
+      .replace(/^document_/gi, '');
+  }
+  
   export function flattenJson(obj, prefix = '', result = []) {
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const newKey = prefix ? `${prefix}.${key}` : key;
         const value = obj[key];
         
-        // Clean up the field path by removing common metadata prefixes
+        // Clean up the field path
         const cleanKey = cleanFieldPath(newKey);
         
         if (value === null || value === undefined) {
@@ -44,15 +61,4 @@ export function formatFileSize(bytes) {
       }
     }
     return result;
-  }
-  
-  // Helper function to clean field paths
-  function cleanFieldPath(path) {
-    // Remove common metadata prefixes like "extracted_fields.", "metadata.", etc.
-    return path
-      .replace(/^extracted_fields\./gi, '')
-      .replace(/^metadata\./gi, '')
-      .replace(/^data\./gi, '')
-      .replace(/^fields\./gi, '')
-      .replace(/^document\./gi, '');
   }
