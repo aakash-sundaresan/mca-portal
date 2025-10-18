@@ -1,6 +1,6 @@
 // src/components/BrowserSection.jsx
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, RefreshCw, ArrowLeft, FolderUp } from 'lucide-react';
+import { ChevronRight, RefreshCw, ArrowLeft, FolderUp, Search } from 'lucide-react';
 import FileItem from './FileItem';
 
 export default function BrowserSection({ 
@@ -21,81 +21,105 @@ export default function BrowserSection({
   }, [currentPath]);
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-indigo-600 pb-2">
-        JSON Results Browser
-      </h2>
+    <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-2xl shadow-gold/20 border border-yellow-500/20 p-8 mb-8 animate-scale-in">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-gold">
+          <Search className="w-5 h-5 text-black" />
+        </div>
+        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-400">
+          JSON Results Browser
+        </h2>
+      </div>
 
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg mb-4 border-l-4 border-indigo-600">
+      {/* Info Card */}
+      <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 p-5 rounded-xl mb-6 border-l-4 border-yellow-500">
         <p className="text-sm mb-2">
-          <strong className="text-indigo-700">Current Path:</strong>{' '}
-          <code className="bg-indigo-100 px-2 py-1 rounded text-indigo-800 font-mono text-xs">
+          <span className="font-semibold text-yellow-400">Current Path:</span>{' '}
+          <code className="bg-black/50 px-2 py-1 rounded text-yellow-300 font-mono text-xs border border-yellow-500/30">
             bucket/{currentPath}
           </code>
         </p>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-gray-400">
           Browse and view processed JSON results from uploaded documents.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-4">
+      {/* Navigation Controls */}
+      <div className="flex flex-wrap gap-3 mb-6">
         <div className="flex-1 min-w-[300px] flex gap-2">
           <input
             type="text"
             value={pathInput}
             onChange={(e) => setPathInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && onPathChange(pathInput)}
-            className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-600 focus:ring focus:ring-indigo-200 outline-none"
+            className="flex-1 px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg 
+                     text-gray-200 placeholder-gray-500
+                     focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 outline-none
+                     transition-all duration-300"
             placeholder="Path (e.g., auditors-report/json/)"
           />
           <button
             onClick={() => onPathChange(pathInput)}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-5 py-3 rounded-lg 
+                     hover:shadow-gold transition-all flex items-center gap-2 font-semibold
+                     hover:scale-105 active:scale-95"
           >
             <ChevronRight className="w-4 h-4" />
-            Navigate
+            Go
           </button>
         </div>
         
         <div className="flex gap-2">
           <button
             onClick={onRefresh}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+            className="bg-gray-800 border-2 border-gray-700 text-yellow-400 px-4 py-3 rounded-lg 
+                     hover:border-yellow-500 hover:shadow-gold/50 transition-all flex items-center gap-2 font-semibold
+                     hover:scale-105 active:scale-95"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
           <button
             onClick={onGoBack}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+            className="bg-gray-800 border-2 border-gray-700 text-yellow-400 px-4 py-3 rounded-lg 
+                     hover:border-yellow-500 hover:shadow-gold/50 transition-all flex items-center gap-2 font-semibold
+                     hover:scale-105 active:scale-95"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
           <button
             onClick={onGoToResults}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-5 py-3 rounded-lg 
+                     hover:shadow-gold transition-all flex items-center gap-2 font-semibold
+                     hover:scale-105 active:scale-95"
           >
             <FolderUp className="w-4 h-4" />
-            Go to Results
+            Results
           </button>
         </div>
       </div>
 
-      <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
+      {/* File List */}
+      <div className="border-2 border-gray-800 rounded-xl overflow-hidden bg-gray-900/50 backdrop-blur-sm">
         {isLoading ? (
-          <div className="p-8 text-center">
-            <RefreshCw className="w-8 h-8 mx-auto mb-2 text-indigo-600 animate-spin" />
-            <p className="text-gray-600">Loading files...</p>
+          <div className="p-12 text-center">
+            <RefreshCw className="w-10 h-10 mx-auto mb-3 text-yellow-400 animate-spin" />
+            <p className="text-gray-400 font-medium">Loading files...</p>
           </div>
         ) : files.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">
-            No files found in this directory
+          <div className="p-12 text-center">
+            <div className="inline-block p-4 bg-gray-800 rounded-2xl mb-4">
+              <Search className="w-12 h-12 text-gray-600" />
+            </div>
+            <p className="text-gray-500 font-medium">No files found in this directory</p>
           </div>
         ) : (
-          files.map((file, index) => (
-            <FileItem key={index} file={file} onClick={() => onFileClick(file)} />
-          ))
+          <div className="divide-y divide-gray-800">
+            {files.map((file, index) => (
+              <FileItem key={index} file={file} onClick={() => onFileClick(file)} />
+            ))}
+          </div>
         )}
       </div>
     </div>

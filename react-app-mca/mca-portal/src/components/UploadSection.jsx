@@ -1,6 +1,6 @@
 // src/components/UploadSection.jsx
 import React, { useState, useRef } from 'react';
-import { Upload, RefreshCw } from 'lucide-react';
+import { Upload, RefreshCw, CloudUpload, CheckCircle, Info, Zap } from 'lucide-react';
 import { formatFileSize } from '../utils/helpers';
 
 export default function UploadSection({ 
@@ -37,48 +37,84 @@ export default function UploadSection({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-indigo-600 pb-2">
-        Upload Document for Processing
-      </h2>
+    <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-2xl shadow-gold/20 border border-yellow-500/20 p-8 mb-8 animate-scale-in">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-gold">
+          <CloudUpload className="w-5 h-5 text-black" />
+        </div>
+        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-400">
+          Upload Document for Processing
+        </h2>
+      </div>
       
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg mb-4 border-l-4 border-indigo-600">
-        <p className="text-sm mb-2">
-          <strong className="text-indigo-700">Upload Path:</strong>{' '}
-          <code className="bg-indigo-100 px-2 py-1 rounded text-indigo-800 font-mono text-xs">
-            bucket/{uploadPath}
-          </code>
-        </p>
-        <p className="text-sm mb-2">
-          <strong className="text-indigo-700">Results Path:</strong>{' '}
-          <code className="bg-indigo-100 px-2 py-1 rounded text-indigo-800 font-mono text-xs">
-            bucket/{resultsPath}
-          </code>
-        </p>
-        <p className="text-sm text-gray-600">
-          Files uploaded here will be processed and results will appear in the JSON results below.
-        </p>
+      {/* Info Card */}
+      <div className="bg-gradient-to-r from-yellow-500/10 to-amber-500/10 p-5 rounded-xl mb-6 border-l-4 border-yellow-500 shadow-sm">
+        <div className="flex items-start gap-3">
+          <Info className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+          <div className="space-y-2 text-sm">
+            <p>
+              <span className="font-semibold text-yellow-400">Upload Path:</span>{' '}
+              <code className="bg-black/50 px-2 py-1 rounded text-yellow-300 font-mono text-xs border border-yellow-500/30">
+                {uploadPath}
+              </code>
+            </p>
+            <p>
+              <span className="font-semibold text-yellow-400">Results Path:</span>{' '}
+              <code className="bg-black/50 px-2 py-1 rounded text-yellow-300 font-mono text-xs border border-yellow-500/30">
+                {resultsPath}
+              </code>
+            </p>
+            <p className="text-gray-400">
+              Files uploaded here will be processed by AI and results will appear in the JSON results browser below.
+            </p>
+          </div>
+        </div>
       </div>
 
+      {/* Upload Area */}
       <div
         onClick={() => fileInputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-3 border-dashed rounded-xl p-12 text-center cursor-pointer transition-all duration-200 ${
-          isDragging
-            ? 'border-indigo-600 bg-indigo-50'
-            : 'border-gray-300 hover:border-indigo-500 hover:bg-indigo-50/30'
-        }`}
+        className={`
+          relative overflow-hidden group
+          border-3 border-dashed rounded-2xl p-12 text-center cursor-pointer 
+          transition-all duration-300 ease-out
+          ${isDragging
+            ? 'border-yellow-500 bg-gradient-to-br from-yellow-500/20 to-amber-500/20 scale-105 shadow-glow-gold'
+            : selectedFile
+            ? 'border-yellow-500 bg-gradient-to-br from-yellow-500/10 to-amber-500/10 shadow-gold'
+            : 'border-gray-700 bg-gray-800/30 hover:border-yellow-500/50 hover:bg-gradient-to-br hover:from-yellow-500/5 hover:to-amber-500/5 hover:shadow-gold/50'}
+        `}
       >
-        <Upload className="w-16 h-16 mx-auto mb-4 text-indigo-600" />
-        <div className="text-lg font-semibold text-gray-800 mb-2">
-          {selectedFile ? selectedFile.name : 'Click to select a file or drag and drop'}
-        </div>
-        <div className="text-sm text-gray-600">
-          {selectedFile
-            ? `Size: ${formatFileSize(selectedFile.size)}`
-            : 'Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, etc.'}
+        {/* Animated background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-yellow-600/0 via-yellow-600/5 to-amber-600/0 group-hover:via-yellow-600/10 transition-all duration-700"></div>
+        
+        <div className="relative z-10">
+          {selectedFile ? (
+            <>
+              <div className="inline-block p-4 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl mb-4 animate-scale-in shadow-gold">
+                <CheckCircle className="w-16 h-16 text-black" />
+              </div>
+              <div className="text-xl font-bold text-yellow-400 mb-2">{selectedFile.name}</div>
+              <div className="text-sm text-yellow-300 font-semibold">
+                Size: {formatFileSize(selectedFile.size)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="inline-block p-4 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl mb-4 group-hover:scale-110 transition-transform duration-300 shadow-gold">
+                <Upload className="w-16 h-16 text-black" />
+              </div>
+              <div className="text-xl font-bold text-gray-200 mb-2">
+                Click to select a file or drag and drop
+              </div>
+              <div className="text-sm text-gray-400">
+                Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, Images
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -90,39 +126,65 @@ export default function UploadSection({
         accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
       />
 
+      {/* Upload Button */}
       <button
         onClick={onUpload}
         disabled={!selectedFile || isUploading}
-        className="mt-4 w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+        className="mt-6 w-full bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 text-black px-8 py-4 rounded-xl font-bold text-lg
+                   hover:shadow-glow-gold hover:scale-105 active:scale-95
+                   disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none
+                   transition-all duration-300 ease-out
+                   relative overflow-hidden group"
       >
-        {isUploading ? `Uploading... ${uploadProgress}%` : 'Upload for Processing'}
+        <span className="relative z-10 flex items-center justify-center gap-3">
+          {isUploading ? (
+            <>
+              <RefreshCw className="w-5 h-5 animate-spin" />
+              Uploading... {uploadProgress}%
+            </>
+          ) : (
+            <>
+              <Zap className="w-5 h-5" />
+              Upload for AI Processing
+            </>
+          )}
+        </span>
+        {!isUploading && (
+          <div className="absolute inset-0 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        )}
       </button>
 
+      {/* Progress Bar */}
       {isUploading && (
-        <div className="mt-4">
-          <div className="bg-gray-200 rounded-full h-2 overflow-hidden">
+        <div className="mt-6 animate-fade-in">
+          <div className="bg-gray-800 rounded-full h-3 overflow-hidden shadow-inner border border-gray-700">
             <div
-              className="bg-gradient-to-r from-indigo-600 to-purple-600 h-full transition-all duration-300"
+              className="h-full bg-gradient-to-r from-yellow-400 via-amber-500 to-yellow-500 transition-all duration-300 ease-out rounded-full relative overflow-hidden"
               style={{ width: `${uploadProgress}%` }}
-            />
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+            </div>
           </div>
+          <p className="text-center text-sm text-yellow-400 mt-2 font-medium">Processing your document...</p>
         </div>
       )}
 
+      {/* Polling Status */}
       {isPolling && (
-        <div className="mt-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+        <div className="mt-6 bg-gradient-to-r from-yellow-500/10 to-amber-500/10 border-2 border-yellow-500/50 rounded-xl p-5 shadow-gold animate-fade-in">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <RefreshCw className="w-5 h-5 text-yellow-600 animate-spin" />
-              <span className="font-semibold text-yellow-800">
-                File uploaded! Processing may take a few minutes... (Auto-checking for results)
-              </span>
+            <div className="flex items-center gap-4">
+              <RefreshCw className="w-6 h-6 text-yellow-400 animate-spin" />
+              <div>
+                <p className="font-bold text-yellow-400 text-lg">Processing in Progress</p>
+                <p className="text-sm text-yellow-300">Auto-checking for results every 10 seconds...</p>
+              </div>
             </div>
             <button
               onClick={onCheckResults}
-              className="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
+              className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-5 py-2 rounded-lg hover:shadow-gold transition-all font-semibold text-sm shadow-md hover:scale-105"
             >
-              Check Results
+              Check Now
             </button>
           </div>
         </div>

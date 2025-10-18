@@ -22,7 +22,47 @@ export function formatFileSize(bytes) {
       .replace(/^metadata_/gi, '')
       .replace(/^data_/gi, '')
       .replace(/^fields_/gi, '')
-      .replace(/^document_/gi, '');
+      .replace(/^document_/gi, '')
+      .replace(/\.Current Year$/gi, '')
+      .replace(/\.current year$/gi, '')
+      .replace(/ Current Year$/gi, '')
+      .replace(/ current year$/gi, '');
+  }
+
+  // Group flattened data into hierarchical structure while preserving order
+  export function groupByHierarchy(flatData) {
+    const grouped = {};
+    const orderMap = {}; // Track the first occurrence order of each group
+    let orderCounter = 0;
+    
+    flatData.forEach(item => {
+      const parts = item.path.split('.');
+      
+      if (parts.length === 1) {
+        // Top-level field
+        if (!grouped['_root']) {
+          grouped['_root'] = [];
+          orderMap['_root'] = orderCounter++;
+        }
+        grouped['_root'].push(item);
+      } else {
+        // Nested field - use all parts except the last as the group key
+        const groupPath = parts.slice(0, -1).join('.');
+        if (!grouped[groupPath]) {
+          grouped[groupPath] = [];
+          orderMap[groupPath] = orderCounter++;
+        }
+        
+        // Store only the final part as the display name
+        grouped[groupPath].push({
+          ...item,
+          displayName: parts[parts.length - 1]
+        });
+      }
+    });
+    
+    // Return both the grouped data and the order map
+    return { grouped, orderMap };
   }
   
   export function flattenJson(obj, prefix = '', result = []) {

@@ -325,9 +325,16 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 relative overflow-hidden">
+      {/* Animated gold particles in background */}
+      <div className="absolute top-0 left-0 w-96 h-96 bg-yellow-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float"></div>
+      <div className="absolute top-1/4 right-0 w-80 h-80 bg-amber-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float" style={{ animationDelay: '2s' }}></div>
+      <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-yellow-600 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float" style={{ animationDelay: '4s' }}></div>
+      
+      {/* Grid pattern overlay */}
+      <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
+      
+      <div className="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
         <Header />
 
         {/* Status Message */}

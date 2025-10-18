@@ -1,7 +1,7 @@
 // src/components/FileViewer.jsx
-import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Search, Copy, Download, FileSpreadsheet } from 'lucide-react';
-import { flattenJson, cleanFieldPath } from '../utils/helpers';
+import React, { useState } from 'react';
+import { X, Search, Copy, Download, FileSpreadsheet, Table2, Zap } from 'lucide-react';
+import { flattenJson } from '../utils/helpers';
 import JsonTableView from './JsonTableView';
 import * as XLSX from 'xlsx';
 
@@ -38,28 +38,20 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
     setTimeout(() => setDownloadStatus(''), 3000);
   };
 
-  // Load Excel file from S3
   const loadExcelFile = async () => {
     setIsLoadingExcel(true);
     setDownloadStatus('Loading Excel file...');
     
     try {
-      // Convert JSON path to Excel path
-      const excelKey = file.key
-        .replace('/json/', '/excel/')
-        .replace('.json', '.xlsx');
-      
+      const excelKey = file.key.replace('/json/', '/excel/').replace('.json', '.xlsx');
       console.log('Loading Excel file:', excelKey);
       
       const params = { Bucket: bucketName, Key: excelKey };
       
       try {
         const data = await s3Client.getObject(params).promise();
-        
-        // Parse Excel file
         const workbook = XLSX.read(data.Body, { type: 'array' });
         
-        // Convert to JSON format for display
         const sheets = {};
         workbook.SheetNames.forEach(sheetName => {
           const worksheet = workbook.Sheets[sheetName];
@@ -72,20 +64,11 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
         setDownloadStatus('✅ Excel file loaded successfully!');
         setTimeout(() => setDownloadStatus(''), 3000);
       } catch (excelError) {
-        console.error('Excel file not found, trying alternative paths...', excelError);
-        
-        // Try alternative path
         const alternativeKey = file.key.split('/').pop().replace('.json', '.xlsx');
         const alternativeExcelKey = `excel/${alternativeKey}`;
         
-        console.log('Trying alternative path:', alternativeExcelKey);
-        
         try {
-          const altData = await s3Client.getObject({ 
-            Bucket: bucketName, 
-            Key: alternativeExcelKey 
-          }).promise();
-          
+          const altData = await s3Client.getObject({ Bucket: bucketName, Key: alternativeExcelKey }).promise();
           const workbook = XLSX.read(altData.Body, { type: 'array' });
           const sheets = {};
           workbook.SheetNames.forEach(sheetName => {
@@ -99,13 +82,11 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
           setDownloadStatus('✅ Excel file loaded successfully!');
           setTimeout(() => setDownloadStatus(''), 3000);
         } catch (altError) {
-          console.error('Alternative Excel path also not found:', altError);
           setDownloadStatus('❌ Excel file not found in S3');
           setTimeout(() => setDownloadStatus(''), 5000);
         }
       }
     } catch (error) {
-      console.error('Error loading Excel:', error);
       setDownloadStatus('❌ Error: ' + error.message);
       setTimeout(() => setDownloadStatus(''), 5000);
     } finally {
@@ -116,18 +97,12 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
   const downloadFile = async () => {
     try {
       setDownloadStatus('Downloading...');
-      
-      const excelKey = file.key
-        .replace('/json/', '/excel/')
-        .replace('.json', '.xlsx');
-      
-      console.log('Attempting to download Excel file:', excelKey);
+      const excelKey = file.key.replace('/json/', '/excel/').replace('.json', '.xlsx');
       
       const params = { Bucket: bucketName, Key: excelKey };
       
       try {
         const data = await s3Client.getObject(params).promise();
-        
         const blob = new Blob([data.Body], { 
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
         });
@@ -145,19 +120,11 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
         setDownloadStatus('✅ Downloaded successfully!');
         setTimeout(() => setDownloadStatus(''), 3000);
       } catch (excelError) {
-        console.error('Excel file not found, trying alternative paths...', excelError);
-        
         const alternativeKey = file.key.split('/').pop().replace('.json', '.xlsx');
         const alternativeExcelKey = `excel/${alternativeKey}`;
         
-        console.log('Trying alternative path:', alternativeExcelKey);
-        
         try {
-          const altData = await s3Client.getObject({ 
-            Bucket: bucketName, 
-            Key: alternativeExcelKey 
-          }).promise();
-          
+          const altData = await s3Client.getObject({ Bucket: bucketName, Key: alternativeExcelKey }).promise();
           const blob = new Blob([altData.Body], { 
             type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
           });
@@ -175,13 +142,11 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
           setDownloadStatus('✅ Downloaded successfully!');
           setTimeout(() => setDownloadStatus(''), 3000);
         } catch (altError) {
-          console.error('Alternative Excel path also not found:', altError);
           setDownloadStatus('❌ Excel file not found. Downloading JSON instead...');
           setTimeout(() => downloadJsonFallback(), 1500);
         }
       }
     } catch (error) {
-      console.error('Download error:', error);
       setDownloadStatus('❌ Error: ' + error.message);
       setTimeout(() => setDownloadStatus(''), 5000);
     }
@@ -204,7 +169,6 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
       setDownloadStatus('Downloaded JSON file');
       setTimeout(() => setDownloadStatus(''), 3000);
     } catch (error) {
-      console.error('JSON download error:', error);
       setDownloadStatus('❌ Download failed');
       setTimeout(() => setDownloadStatus(''), 3000);
     }
@@ -221,31 +185,43 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-      <div className="flex items-center justify-between mb-4 pb-4 border-b-2 border-indigo-600">
-        <h2 className="text-2xl font-bold text-gray-800">File Viewer</h2>
+    <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-2xl shadow-gold/20 border border-yellow-500/20 p-8 mb-8 animate-scale-in">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6 pb-4 border-b-2 border-yellow-500/30">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-gold">
+            <FileSpreadsheet className="w-5 h-5 text-black" />
+          </div>
+          <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-400">
+            File Viewer
+          </h2>
+        </div>
         <button
           onClick={onClose}
-          className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
+          className="bg-gray-800 border-2 border-gray-700 text-gray-300 px-4 py-2 rounded-lg 
+                   hover:border-red-500 hover:text-red-400 transition-all flex items-center gap-2"
         >
           <X className="w-4 h-4" />
           Close
         </button>
       </div>
 
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <span className="font-semibold text-gray-800">{file.name}</span>
+      {/* Controls */}
+      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        <span className="font-semibold text-yellow-400 text-lg">{file.name}</span>
         <div className="flex gap-2 flex-wrap">
           {file.type === 'json' && (
             <>
               <button
                 onClick={toggleView}
                 disabled={isLoadingExcel}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50"
+                className="bg-gray-800 border-2 border-gray-700 text-yellow-400 px-4 py-2 rounded-lg 
+                         hover:border-yellow-500 hover:shadow-gold/50 transition-all flex items-center gap-2 text-sm font-semibold
+                         disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {viewMode === 'excel' ? (
                   <>
-                    <Eye className="w-4 h-4" />
+                    <Table2 className="w-4 h-4" />
                     Table View
                   </>
                 ) : (
@@ -257,7 +233,8 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
               </button>
               <button
                 onClick={() => setShowSearch(!showSearch)}
-                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 text-sm"
+                className="bg-gray-800 border-2 border-gray-700 text-yellow-400 px-4 py-2 rounded-lg 
+                         hover:border-yellow-500 hover:shadow-gold/50 transition-all flex items-center gap-2 text-sm font-semibold"
               >
                 <Search className="w-4 h-4" />
                 Search
@@ -266,7 +243,8 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
           )}
           <button
             onClick={copyToClipboard}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2 text-sm"
+            className="bg-gray-800 border-2 border-gray-700 text-yellow-400 px-4 py-2 rounded-lg 
+                     hover:border-yellow-500 hover:shadow-gold/50 transition-all flex items-center gap-2 text-sm font-semibold"
           >
             <Copy className="w-4 h-4" />
             Copy JSON
@@ -274,7 +252,9 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
           <button
             onClick={downloadFile}
             disabled={downloadStatus.includes('Downloading')}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="bg-gradient-to-r from-yellow-400 to-amber-500 text-black px-4 py-2 rounded-lg 
+                     hover:shadow-gold transition-all flex items-center gap-2 text-sm font-semibold
+                     disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Download className="w-4 h-4" />
             Download Excel
@@ -282,50 +262,55 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
         </div>
       </div>
 
-      {/* Download Status Message */}
+      {/* Download Status */}
       {downloadStatus && (
-        <div className={`mb-4 p-3 rounded-lg text-sm font-semibold ${
+        <div className={`mb-4 p-4 rounded-lg text-sm font-semibold border-2 animate-fade-in ${
           downloadStatus.includes('✅') 
-            ? 'bg-green-100 text-green-800 border border-green-200' 
+            ? 'bg-yellow-500/10 border-yellow-500/50 text-yellow-400' 
             : downloadStatus.includes('❌')
-            ? 'bg-red-100 text-red-800 border border-red-200'
-            : 'bg-blue-100 text-blue-800 border border-blue-200'
+            ? 'bg-red-500/10 border-red-500/50 text-red-400'
+            : 'bg-blue-500/10 border-blue-500/50 text-blue-400'
         }`}>
           {downloadStatus}
         </div>
       )}
 
+      {/* Search Box */}
       {showSearch && viewMode === 'table' && (
-        <div className="mb-4">
+        <div className="mb-4 animate-fade-in">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search by field path or value..."
-            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-indigo-600 focus:ring focus:ring-indigo-200 outline-none"
+            className="w-full px-4 py-3 bg-gray-800 border-2 border-gray-700 rounded-lg 
+                     text-gray-200 placeholder-gray-500
+                     focus:border-yellow-500 focus:ring-2 focus:ring-yellow-500/20 outline-none
+                     transition-all duration-300"
           />
           {searchTerm && (
-            <p className="text-sm text-gray-600 mt-2">
+            <p className="text-sm text-gray-400 mt-2">
               Showing {filteredData.length} of {flatData.length} rows
             </p>
           )}
         </div>
       )}
 
-      <div className="border-2 border-gray-200 rounded-lg overflow-auto max-h-[600px]">
+      {/* Content Area */}
+      <div className="border-2 border-gray-800 rounded-xl overflow-hidden bg-gray-900/50 max-h-[600px] overflow-y-auto">
         {file.type === 'json' && jsonData ? (
           viewMode === 'table' ? (
             <JsonTableView data={filteredData} />
           ) : viewMode === 'excel' && excelData ? (
             <ExcelViewer excelData={excelData} />
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-gray-400" />
-              <p>Click "View Excel" to load the Excel file</p>
+            <div className="p-12 text-center">
+              <FileSpreadsheet className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+              <p className="text-gray-400">Click "View Excel" to load the Excel file</p>
             </div>
           )
         ) : (
-          <pre className="p-6 bg-gray-50 text-sm font-mono overflow-auto whitespace-pre-wrap">
+          <pre className="p-6 bg-gray-900 text-sm font-mono overflow-auto whitespace-pre-wrap text-gray-300">
             {file.content}
           </pre>
         )}
@@ -336,82 +321,83 @@ export default function FileViewer({ file, onClose, s3Client, bucketName }) {
 
 // Excel Viewer Component
 function ExcelViewer({ excelData }) {
-    const [activeSheet, setActiveSheet] = useState(Object.keys(excelData)[0]);
-    const sheetNames = Object.keys(excelData);
-    const currentSheetData = excelData[activeSheet];
-  
-    if (!currentSheetData || currentSheetData.length === 0) {
-      return (
-        <div className="p-8 text-center text-gray-500">
-          No data in this sheet
-        </div>
-      );
-    }
-  
-    // Clean the header row using the shared helper function
-    const headers = currentSheetData[0]?.map(header => cleanFieldPath(header)) || [];
-    const dataRows = currentSheetData.slice(1);
-  
+  const [activeSheet, setActiveSheet] = useState(Object.keys(excelData)[0]);
+  const sheetNames = Object.keys(excelData);
+  const currentSheetData = excelData[activeSheet];
+
+  if (!currentSheetData || currentSheetData.length === 0) {
     return (
-      <div className="excel-viewer">
-        {/* Sheet Tabs */}
-        {sheetNames.length > 1 && (
-          <div className="flex gap-2 p-4 bg-gray-100 border-b-2 border-gray-200 overflow-x-auto">
-            {sheetNames.map(sheetName => (
-              <button
-                key={sheetName}
-                onClick={() => setActiveSheet(sheetName)}
-                className={`px-4 py-2 rounded-t-lg font-semibold text-sm whitespace-nowrap transition-colors ${
-                  activeSheet === sheetName
-                    ? 'bg-white text-indigo-600 border-b-2 border-indigo-600'
-                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                }`}
-              >
-                {sheetName}
-              </button>
-            ))}
-          </div>
-        )}
-  
-        {/* Excel Table with Clean Headers */}
-        <div className="overflow-auto">
-          <table className="w-full border-collapse">
-            <thead className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white sticky top-0">
-              <tr>
-                {headers.map((header, colIndex) => (
-                  <th
-                    key={colIndex}
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider border border-indigo-500 whitespace-nowrap"
-                  >
-                    {header || `Column ${colIndex + 1}`}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dataRows.map((row, rowIndex) => (
-                <tr
-                  key={rowIndex}
-                  className="border-b border-gray-200 hover:bg-indigo-50 transition-colors"
-                >
-                  {row.map((cell, colIndex) => (
-                    <td
-                      key={colIndex}
-                      className="px-4 py-3 text-sm text-gray-700 border border-gray-200"
-                    >
-                      {cell !== null && cell !== undefined && cell !== '' ? String(cell) : '-'}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-  
-        {/* Sheet Info */}
-        <div className="p-4 bg-gray-50 border-t-2 border-gray-200 text-sm text-gray-600">
-          <strong>Sheet:</strong> {activeSheet} | <strong>Rows:</strong> {dataRows.length} | <strong>Columns:</strong> {headers.length}
-        </div>
+      <div className="p-12 text-center text-gray-500">
+        No data in this sheet
       </div>
     );
   }
+
+  const headers = currentSheetData[0] || [];
+  const dataRows = currentSheetData.slice(1);
+
+  return (
+    <div className="excel-viewer">
+      {/* Sheet Tabs */}
+      {sheetNames.length > 1 && (
+        <div className="flex gap-2 p-4 bg-gray-800/50 border-b-2 border-gray-800 overflow-x-auto">
+          {sheetNames.map(sheetName => (
+            <button
+              key={sheetName}
+              onClick={() => setActiveSheet(sheetName)}
+              className={`px-5 py-3 rounded-t-lg font-semibold text-sm whitespace-nowrap transition-all ${
+                activeSheet === sheetName
+                  ? 'bg-gradient-to-r from-yellow-400 to-amber-500 text-black shadow-gold'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-yellow-400'
+              }`}
+            >
+              {sheetName}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Excel Table */}
+      <div className="overflow-auto">
+        <table className="w-full border-collapse">
+          <thead className="bg-gradient-to-r from-yellow-400 to-amber-500 sticky top-0 z-10">
+            <tr>
+              {headers.map((header, colIndex) => (
+                <th
+                  key={colIndex}
+                  className="px-4 py-4 text-left text-xs font-bold uppercase tracking-wider border border-yellow-600/30 whitespace-nowrap text-black"
+                >
+                  {header || `Column ${colIndex + 1}`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dataRows.map((row, rowIndex) => (
+              <tr
+                key={rowIndex}
+                className="border-b border-gray-800 hover:bg-yellow-500/5 transition-colors"
+              >
+                {row.map((cell, colIndex) => (
+                  <td
+                    key={colIndex}
+                    className="px-4 py-3 text-sm text-gray-300 border border-gray-800"
+                  >
+                    {cell !== null && cell !== undefined && cell !== '' ? String(cell) : '-'}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Sheet Info */}
+      <div className="p-4 bg-gray-800/50 border-t-2 border-gray-800 text-sm text-gray-400">
+        <strong className="text-yellow-400">Sheet:</strong> {activeSheet} | 
+        <strong className="text-yellow-400 ml-3">Rows:</strong> {dataRows.length} | 
+        <strong className="text-yellow-400 ml-3">Columns:</strong> {headers.length}
+      </div>
+    </div>
+  );
+}

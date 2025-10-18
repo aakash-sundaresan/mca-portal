@@ -1,51 +1,86 @@
 // src/components/DocumentTypeSelector.jsx
 import React from 'react';
+import { CheckCircle2, FileText, Briefcase } from 'lucide-react';
 
 export default function DocumentTypeSelector({ documentType, onChange }) {
   const options = [
     {
       value: 'auditors-report',
       title: "Auditor's Report",
-      description: 'Upload: auditors-report/uploads/ | Results: auditors-report/json/'
+      description: 'Upload: auditors-report/uploads/ | Results: auditors-report/json/',
+      icon: FileText,
     },
     {
       value: 'aoc4',
       title: 'AOC-4',
-      description: 'Upload: aoc4/uploads/ | Results: aoc4/json/'
+      description: 'Upload: aoc4/uploads/ | Results: aoc4/json/',
+      icon: Briefcase,
     }
   ];
 
   return (
-    <div className="bg-white rounded-xl shadow-md p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b-2 border-indigo-600 pb-2">
-        Select Document Type
-      </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {options.map(option => (
-          <label
-            key={option.value}
-            className={`flex items-start p-5 border-2 rounded-lg cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-1 ${
-              documentType === option.value
-                ? 'border-indigo-600 bg-indigo-50 shadow-md'
-                : 'border-gray-200 bg-gray-50 hover:border-indigo-400'
-            }`}
-          >
-            <input
-              type="radio"
-              name="docType"
-              value={option.value}
-              checked={documentType === option.value}
-              onChange={(e) => onChange(e.target.value)}
-              className="mt-1 mr-3 w-5 h-5 text-indigo-600 focus:ring-indigo-500"
-            />
-            <div className="flex-1">
-              <div className="text-lg font-semibold text-gray-800 mb-1">{option.title}</div>
-              <div className="text-sm text-gray-600 font-mono bg-white px-3 py-2 rounded">
-                {option.description}
+    <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-2xl shadow-gold/20 border border-yellow-500/20 p-8 mb-8 animate-scale-in">
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-gold">
+          <FileText className="w-5 h-5 text-black" />
+        </div>
+        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-400">
+          Select Document Type
+        </h2>
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {options.map(option => {
+          const Icon = option.icon;
+          const isSelected = documentType === option.value;
+          
+          return (
+            <label
+              key={option.value}
+              className="group relative cursor-pointer"
+            >
+              <input
+                type="radio"
+                name="docType"
+                value={option.value}
+                checked={isSelected}
+                onChange={(e) => onChange(e.target.value)}
+                className="sr-only"
+              />
+              
+              <div className={`
+                relative overflow-hidden p-6 rounded-xl border-2 transition-all duration-300
+                ${isSelected 
+                  ? 'border-yellow-500 bg-gradient-to-br from-yellow-500/10 to-amber-500/10 shadow-glow-gold scale-105' 
+                  : 'border-gray-700 bg-gray-800/50 hover:border-yellow-500/50 hover:shadow-gold hover:scale-102'}
+              `}>
+                {/* Gold shimmer effect */}
+                {isSelected && (
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent animate-shimmer"></div>
+                )}
+                
+                <div className="relative z-10">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className={`p-3 rounded-xl transition-all duration-300 ${
+                      isSelected 
+                        ? 'bg-gradient-to-br from-yellow-400 to-amber-500 shadow-gold' 
+                        : 'bg-gray-700 group-hover:bg-gray-600'
+                    }`}>
+                      <Icon className={`w-6 h-6 ${isSelected ? 'text-black' : 'text-gray-300'}`} />
+                    </div>
+                    {isSelected && (
+                      <CheckCircle2 className="w-6 h-6 text-yellow-400 animate-scale-in" />
+                    )}
+                  </div>
+                  
+                  <h3 className={`text-xl font-bold mb-2 ${isSelected ? 'text-yellow-400' : 'text-gray-200'}`}>
+                    {option.title}
+                  </h3>     
+                </div>
               </div>
-            </div>
-          </label>
-        ))}
+            </label>
+          );
+        })}
       </div>
     </div>
   );
