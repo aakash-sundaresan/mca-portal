@@ -19,17 +19,17 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
   ];
 
   return (
-    <div className="bg-gradient-to-br from-gray-900 to-black rounded-2xl shadow-2xl shadow-gold/20 border border-yellow-500/20 p-8 mb-8 animate-scale-in">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-lg shadow-gold">
-          <FileText className="w-5 h-5 text-black" />
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+      <div className="flex items-center gap-3 mb-5">
+        <div className="p-2 bg-blue-50 rounded-lg">
+          <FileText className="w-5 h-5 text-blue-600" />
         </div>
-        <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-amber-400">
+        <h2 className="text-lg font-semibold text-gray-900">
           Select Document Type
         </h2>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {options.map(option => {
           const Icon = option.icon;
           const isSelected = documentType === option.value;
@@ -49,34 +49,33 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
               />
               
               <div className={`
-                relative overflow-hidden p-6 rounded-xl border-2 transition-all duration-300
+                relative p-5 rounded-lg border-2 transition-all duration-200
                 ${isSelected 
-                  ? 'border-yellow-500 bg-gradient-to-br from-yellow-500/10 to-amber-500/10 shadow-glow-gold scale-105' 
-                  : 'border-gray-700 bg-gray-800/50 hover:border-yellow-500/50 hover:shadow-gold hover:scale-102'}
+                  ? 'border-blue-600 bg-blue-50 shadow-sm' 
+                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-gray-50'}
               `}>
-                {/* Gold shimmer effect */}
-                {isSelected && (
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-500/10 to-transparent animate-shimmer"></div>
-                )}
-                
-                <div className="relative z-10">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className={`p-3 rounded-xl transition-all duration-300 ${
-                      isSelected 
-                        ? 'bg-gradient-to-br from-yellow-400 to-amber-500 shadow-gold' 
-                        : 'bg-gray-700 group-hover:bg-gray-600'
-                    }`}>
-                      <Icon className={`w-6 h-6 ${isSelected ? 'text-black' : 'text-gray-300'}`} />
-                    </div>
-                    {isSelected && (
-                      <CheckCircle2 className="w-6 h-6 text-yellow-400 animate-scale-in" />
-                    )}
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`p-2.5 rounded-lg transition-all duration-200 ${
+                    isSelected 
+                      ? 'bg-blue-600' 
+                      : 'bg-gray-100 group-hover:bg-gray-200'
+                  }`}>
+                    <Icon className={`w-5 h-5 ${isSelected ? 'text-white' : 'text-gray-600'}`} />
                   </div>
-                  
-                  <h3 className={`text-xl font-bold mb-2 ${isSelected ? 'text-yellow-400' : 'text-gray-200'}`}>
-                    {option.title}
-                  </h3>     
+                  {isSelected && (
+                    <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                  )}
                 </div>
+                
+                <h3 className={`text-base font-semibold mb-1 ${
+                  isSelected ? 'text-blue-900' : 'text-gray-900'
+                }`}>
+                  {option.title}
+                </h3>
+                
+                <p className="text-xs text-gray-500 leading-relaxed">
+                  {option.description}
+                </p>
               </div>
             </label>
           );

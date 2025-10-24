@@ -5,8 +5,7 @@ import Header from './components/Header';
 import StatusMessage from './components/StatusMessage';
 import DocumentTypeSelector from './components/DocumentTypeSelector';
 import UploadSection from './components/UploadSection';
-import BrowserSection from './components/BrowserSection';
-import FileViewer from './components/FileViewer';
+import ExcelGenerator from './components/ExcelGenerator';
 
 const AWS = window.AWS;
 
@@ -47,9 +46,9 @@ export default function App() {
       });
 
       setS3Client(s3);
-      showMessage('AWS SDK initialized successfully', 'success');
+      showMessage('System initialized successfully', 'success');
     } catch (error) {
-      showMessage('Error initializing AWS SDK: ' + error.message, 'error');
+      showMessage('Error initializing system: ' + error.message, 'error');
       console.error('AWS initialization error:', error);
     }
   }, []);
@@ -167,7 +166,6 @@ export default function App() {
       setPathHistory((prev) => prev.slice(0, -1));
       setCurrentPath(previousPath);
     } else {
-      // If no history, go to root
       setCurrentPath('');
     }
   };
@@ -207,7 +205,7 @@ export default function App() {
       await upload.promise();
 
       showMessage(
-        'File uploaded successfully! Processing may take a few minutes...',
+        'File uploaded successfully. Processing may take a few minutes.',
         'success'
       );
       
@@ -225,7 +223,6 @@ export default function App() {
   };
 
   const startPolling = (fileName) => {
-    // Clear any existing polling
     if (pollingInterval) {
       clearInterval(pollingInterval);
     }
@@ -250,10 +247,9 @@ export default function App() {
           clearInterval(interval);
           setPollingInterval(null);
           setIsPolling(false);
-          showMessage('✅ Processing complete! Result file found.', 'success');
+          showMessage('Processing complete. Result file is ready.', 'success');
           setCurrentPath(resultsPath);
           
-          // Auto-open the file after a short delay
           setTimeout(() => {
             viewFile({
               name: `${baseFileName}.json`,
@@ -266,17 +262,16 @@ export default function App() {
         console.error('Polling error:', error);
       }
 
-      // Stop polling after max attempts
       if (pollCount >= maxPolls) {
         clearInterval(interval);
         setPollingInterval(null);
         setIsPolling(false);
         showMessage(
-          '⏱️ Polling stopped after 6 minutes. Please check manually for results.',
+          'Polling stopped after 6 minutes. Please check manually for results.',
           'info'
         );
       }
-    }, 10000); // Check every 10 seconds
+    }, 10000);
 
     setPollingInterval(interval);
   };
@@ -325,62 +320,41 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-black to-gray-900 relative overflow-hidden">
-      {/* Animated gold particles in background */}
-      <div className="absolute top-0 left-0 w-96 h-96 bg-yellow-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float"></div>
-      <div className="absolute top-1/4 right-0 w-80 h-80 bg-amber-500 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float" style={{ animationDelay: '2s' }}></div>
-      <div className="absolute bottom-0 left-1/3 w-96 h-96 bg-yellow-600 rounded-full mix-blend-screen filter blur-3xl opacity-10 animate-float" style={{ animationDelay: '4s' }}></div>
-      
-      {/* Grid pattern overlay */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.02)_1px,transparent_1px)] bg-[size:50px_50px]"></div>
-      
-      <div className="relative z-10 max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-7xl mx-auto">
         <Header />
 
         {/* Status Message */}
         <StatusMessage message={message} />
 
-        {/* Document Type Selector */}
-        <DocumentTypeSelector
-          documentType={documentType}
-          onChange={handleDocumentTypeChange}
-        />
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          {/* Document Type Selector */}
+          <DocumentTypeSelector
+            documentType={documentType}
+            onChange={handleDocumentTypeChange}
+          />
 
-        {/* Upload Section */}
-        <UploadSection
-          selectedFile={selectedFile}
-          onFileSelect={handleFileSelect}
-          onUpload={handleUpload}
-          isUploading={isUploading}
-          uploadProgress={uploadProgress}
-          isPolling={isPolling}
-          uploadPath={uploadPath}
-          resultsPath={resultsPath}
-          onCheckResults={() => setCurrentPath(resultsPath)}
-        />
+          {/* Upload Section */}
+          <UploadSection
+            selectedFile={selectedFile}
+            onFileSelect={handleFileSelect}
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            isPolling={isPolling}
+            uploadPath={uploadPath}
+            resultsPath={resultsPath}
+            onCheckResults={() => setCurrentPath(resultsPath)}
+          />
 
-        {/* Browser Section */}
-        <BrowserSection
-          currentPath={currentPath}
-          onPathChange={navigateToPath}
-          onGoBack={goBack}
-          onRefresh={() => loadFiles(currentPath)}
-          onGoToResults={() => setCurrentPath(resultsPath)}
-          files={files}
-          isLoading={isLoading}
-          onFileClick={handleFileClick}
-          resultsPath={resultsPath}
-        />
-
-        {/* File Viewer */}
-        {viewerFile && (
-          <FileViewer
-            file={viewerFile}
-            onClose={() => setViewerFile(null)}
+          {/* Excel Generator Section */}
+          <ExcelGenerator
+            documentType={documentType}
             s3Client={s3Client}
             bucketName={AWS_CONFIG.bucketName}
+            onShowMessage={showMessage}
           />
-        )}
+        </div>
       </div>
     </div>
   );
