@@ -1,6 +1,6 @@
 // src/components/DocumentTypeSelector.jsx
 import React from 'react';
-import { CheckCircle2, FileText, Briefcase } from 'lucide-react';
+import { CheckCircle2, FileText, Briefcase, Users } from 'lucide-react';
 
 export default function DocumentTypeSelector({ documentType, onChange }) {
   const options = [
@@ -15,6 +15,12 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
       title: 'AOC-4',
       description: 'Upload: aoc4/uploads/ | Results: aoc4/json/',
       icon: Briefcase,
+    },
+    {
+      value: 'directors-report',
+      title: "Director's Report",
+      description: 'Upload: directors-report/uploads/ | Results: directors-report/json/',
+      icon: Users,
     }
   ];
 
@@ -29,7 +35,7 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
         </h2>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {options.map(option => {
           const Icon = option.icon;
           const isSelected = documentType === option.value;

@@ -74,13 +74,22 @@ export default function App() {
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
   };
 
+  const getDocumentDisplayName = (type) => {
+    const names = {
+      'auditors-report': "Auditor's Report",
+      'aoc4': 'AOC-4',
+      'directors-report': "Director's Report"
+    };
+    return names[type] || type;
+  };
+
   const handleDocumentTypeChange = (type) => {
     setDocumentType(type);
     const newResultsPath = `${type}/json/`;
     setCurrentPath(newResultsPath);
     setPathHistory([]);
     showMessage(
-      `Switched to ${type === 'auditors-report' ? "Auditor's Report" : 'AOC-4'}`,
+      `Switched to ${getDocumentDisplayName(type)}`,
       'success'
     );
   };
