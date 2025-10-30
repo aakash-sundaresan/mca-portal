@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { AWS_CONFIG } from './config';
 import Header from './components/Header';
+import { Authenticator } from '@aws-amplify/ui-react';
+import '@aws-amplify/ui-react/styles.css';
 import StatusMessage from './components/StatusMessage';
 import DocumentTypeSelector from './components/DocumentTypeSelector';
 import UploadSection from './components/UploadSection';
@@ -329,42 +331,52 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto">
-        <Header />
+    <Authenticator>
+      {({ signOut, user }) => (
+        <main>
+          <h1>Hello {user.username}</h1>
+          <button onClick={signOut}>Sign out</button>
 
-        {/* Status Message */}
-        <StatusMessage message={message} />
+        <div className="min-h-screen bg-gray-100">
+          <div className="max-w-7xl mx-auto">
+            <Header />
 
-        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* Document Type Selector */}
-          <DocumentTypeSelector
-            documentType={documentType}
-            onChange={handleDocumentTypeChange}
-          />
+            {/* Status Message */}
+            <StatusMessage message={message} />
 
-          {/* Upload Section */}
-          <UploadSection
-            selectedFile={selectedFile}
-            onFileSelect={handleFileSelect}
-            onUpload={handleUpload}
-            isUploading={isUploading}
-            uploadProgress={uploadProgress}
-            isPolling={isPolling}
-            uploadPath={uploadPath}
-            resultsPath={resultsPath}
-            onCheckResults={() => setCurrentPath(resultsPath)}
-          />
+            <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+              {/* Document Type Selector */}
+              <DocumentTypeSelector
+                documentType={documentType}
+                onChange={handleDocumentTypeChange}
+              />
 
-          {/* Excel Generator Section */}
-          <ExcelGenerator
-            documentType={documentType}
-            s3Client={s3Client}
-            bucketName={AWS_CONFIG.bucketName}
-            onShowMessage={showMessage}
-          />
+              {/* Upload Section */}
+              <UploadSection
+                selectedFile={selectedFile}
+                onFileSelect={handleFileSelect}
+                onUpload={handleUpload}
+                isUploading={isUploading}
+                uploadProgress={uploadProgress}
+                isPolling={isPolling}
+                uploadPath={uploadPath}
+                resultsPath={resultsPath}
+                onCheckResults={() => setCurrentPath(resultsPath)}
+              />
+
+              {/* Excel Generator Section */}
+              <ExcelGenerator
+                documentType={documentType}
+                s3Client={s3Client}
+                bucketName={AWS_CONFIG.bucketName}
+                onShowMessage={showMessage}
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+        </main>
+      )}
+
+    </Authenticator>
   );
 }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MCA Portal - S3 Reader</title>
     <link rel="stylesheet" href="style.css">
-    
+
     <!-- AWS SDK -->
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1563.0.min.js"></script>
 </head>
@@ -44,25 +44,19 @@
                 <div class="upload-info">
                     <p><strong>Upload Path:</strong> <code id="uploadPath">bucket/auditors-report/uploads/</code></p>
                     <p><strong>Results Path:</strong> <code id="resultsPath">bucket/auditors-report/json/</code></p>
-                    <p>Files uploaded here will be processed and results will appear in the JSON results below.</p>
+                    <p>Files uploaded here will be processed and results will appear below.</p>
                 </div>
                 <div class="upload-area" id="uploadArea">
                     <div class="upload-icon">📁</div>
                     <div class="upload-text" id="uploadText">Click to select a file or drag and drop</div>
-                    <div class="upload-subtext" id="uploadSubtext">Supported formats: PDF, DOC, DOCX, XLS, XLSX, TXT, etc.</div>
+                    <div class="upload-subtext" id="uploadSubtext">Supported formats: PDF, DOCX, XLSX, etc.</div>
                 </div>
                 <input type="file" id="fileInput" class="file-input" accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif">
                 <button id="uploadBtn" class="btn btn-primary" disabled>Upload for Processing</button>
+
                 <div id="uploadProgress" class="upload-progress" style="display: none;">
                     <div class="progress-bar"></div>
                     <div class="progress-text">Uploading...</div>
-                </div>
-                <div id="uploadStatus" class="upload-status" style="display: none;">
-                    <div class="status-info">
-                        <span class="status-icon">⏳</span>
-                        <span class="status-text">File uploaded! Processing may take a few minutes... (Auto-checking for results)</span>
-                    </div>
-                    <button id="refreshResults" class="btn btn-secondary">Check for Results</button>
                 </div>
             </section>
 
@@ -71,46 +65,22 @@
                 <h2>JSON Results Browser</h2>
                 <div class="browser-info">
                     <p><strong>Current Path:</strong> <code id="currentPathDisplay">bucket/auditors-report/json/</code></p>
-                    <p>Browse and view processed JSON results from uploaded documents.</p>
                 </div>
                 <div class="browser-controls">
-                    <div class="path-navigation">
-                        <input type="text" id="currentPath" placeholder="Path (e.g., auditors-report/json/)" value="auditors-report/json/">
-                        <button id="navigateBtn" class="btn btn-secondary">Navigate</button>
-                    </div>
-                    <div class="file-actions">
-                        <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
-                        <button id="backBtn" class="btn btn-secondary">Back</button>
-                        <button id="goToResults" class="btn btn-primary">Go to Results</button>
-                    </div>
+                    <input type="text" id="currentPath" value="auditors-report/json/" placeholder="Path (e.g., auditors-report/json/)">
+                    <button id="refreshBtn" class="btn btn-secondary">Refresh</button>
                 </div>
-
-                <div class="file-list" id="fileList">
-                    <!-- Files and folders will be populated here -->
-                </div>
+                <div class="file-list" id="fileList"></div>
             </section>
 
-            <!-- File Viewer Section -->
-            <section class="viewer-section" style="display: none;">
-                <h2>File Viewer</h2>
-                <div class="viewer-controls">
-                    <span id="currentFile" class="current-file"></span>
-                    <button id="closeViewer" class="btn btn-secondary">Close</button>
-                </div>
-                <div class="file-content" id="fileContent">
-                    <!-- File content will be displayed here -->
-                </div>
-            </section>
-
-            <!-- Status Messages -->
             <div id="statusMessage" class="status-message"></div>
         </div>
     </div>
 
-    <!-- For Local Development Only - Create this file with your credentials -->
-    <!-- <script src="functionality/config.local.js"></script> -->
-    <script src="config.js"></script>
-    <!-- Main Application Script -->
+    <!-- ✅ Local AWS Config (must come before main script) -->
+    <script src="config.local.js"></script>
+
+    <!-- ✅ Main Logic -->
     <script src="script.js"></script>
 </body>
 </html>
