@@ -1,16 +1,58 @@
 {
   "providers": {
     "awscloudformation": {
-      "AuthRoleName": "amplify-mcaportal-dev-a9035-authRole",
-      "UnauthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-a9035-unauthRole",
-      "AuthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-a9035-authRole",
+      "AuthRoleName": "amplify-mcaportal-dev-1d993-authRole",
+      "UnauthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-1d993-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-1d993-authRole",
       "Region": "us-east-2",
-      "DeploymentBucketName": "amplify-mcaportal-dev-a9035-deployment",
-      "UnauthRoleName": "amplify-mcaportal-dev-a9035-unauthRole",
-      "StackName": "amplify-mcaportal-dev-a9035",
-      "StackId": "arn:aws:cloudformation:us-east-2:008151863854:stack/amplify-mcaportal-dev-a9035/3b66c020-b5d0-11f0-86b8-0a06cf64622f",
-      "AmplifyAppId": "d1z6lylimnwukj"
+      "DeploymentBucketName": "amplify-mcaportal-dev-1d993-deployment",
+      "UnauthRoleName": "amplify-mcaportal-dev-1d993-unauthRole",
+      "StackName": "amplify-mcaportal-dev-1d993",
+      "StackId": "arn:aws:cloudformation:us-east-2:008151863854:stack/amplify-mcaportal-dev-1d993/895b5ed0-b5da-11f0-8390-02c5d3beef39",
+      "AmplifyAppId": "d6pb8jkeb1u7s"
     }
   },
-  "auth": {}
+  "auth": {
+    "mcaportal95ef2593": {
+      "service": "Cognito",
+      "providerPlugin": "awscloudformation",
+      "dependsOn": [],
+      "customAuth": false,
+      "frontendAuthConfig": {
+        "socialProviders": [],
+        "usernameAttributes": [
+          "EMAIL"
+        ],
+        "signupAttributes": [
+          "EMAIL"
+        ],
+        "passwordProtectionSettings": {
+          "passwordPolicyMinLength": 8,
+          "passwordPolicyCharacters": []
+        },
+        "mfaConfiguration": "OFF",
+        "mfaTypes": [
+          "SMS"
+        ],
+        "verificationMechanisms": [
+          "EMAIL"
+        ]
+      },
+      "providerMetadata": {
+        "s3TemplateURL": "https://s3.amazonaws.com/amplify-mcaportal-dev-1d993-deployment/amplify-cfn-templates/auth/mcaportal95ef2593-cloudformation-template.json",
+        "logicalId": "authmcaportal95ef2593"
+      },
+      "lastPushTimeStamp": "2025-10-30T22:03:21.338Z",
+      "output": {
+        "UserPoolId": "us-east-2_qChQzaPoT",
+        "AppClientIDWeb": "28dttasmm8os1c4bn2n80i29bo",
+        "AppClientID": "71v6grih4k0u1msav27ckrb8b2",
+        "IdentityPoolId": "us-east-2:8d8af0ae-8e8e-4af8-9fbc-e9b10a4e774d",
+        "UserPoolArn": "arn:aws:cognito-idp:us-east-2:008151863854:userpool/us-east-2_qChQzaPoT",
+        "IdentityPoolName": "mcaportal95ef2593_identitypool_95ef2593__dev",
+        "UserPoolName": "mcaportal95ef2593_userpool_95ef2593"
+      },
+      "lastPushDirHash": "wOPL8oK6OBud6M+t/l1AKa4nxCU="
+    }
+  }
 }
