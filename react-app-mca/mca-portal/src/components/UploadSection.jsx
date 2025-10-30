@@ -52,18 +52,6 @@ export default function UploadSection({
         <div className="flex items-start gap-3">
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div className="space-y-2 text-sm">
-            <p className="text-gray-700">
-              <span className="font-medium text-gray-900">Upload Path:</span>{' '}
-              <code className="bg-white px-2 py-0.5 rounded text-gray-600 text-xs border border-gray-200">
-                {uploadPath}
-              </code>
-            </p>
-            <p className="text-gray-700">
-              <span className="font-medium text-gray-900">Results Path:</span>{' '}
-              <code className="bg-white px-2 py-0.5 rounded text-gray-600 text-xs border border-gray-200">
-                {resultsPath}
-              </code>
-            </p>
             <p className="text-gray-600 text-xs">
               Uploaded files will be processed and results will be available in the results section.
             </p>

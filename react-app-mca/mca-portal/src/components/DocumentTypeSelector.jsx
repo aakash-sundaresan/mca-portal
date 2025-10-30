@@ -7,19 +7,16 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
     {
       value: 'auditors-report',
       title: "Auditor's Report",
-      description: 'Upload: auditors-report/uploads/ | Results: auditors-report/json/',
       icon: FileText,
     },
     {
       value: 'aoc4',
       title: 'AOC-4',
-      description: 'Upload: aoc4/uploads/ | Results: aoc4/json/',
       icon: Briefcase,
     },
     {
       value: 'directors-report',
       title: "Director's Report",
-      description: 'Upload: directors-report/uploads/ | Results: directors-report/json/',
       icon: Users,
     }
   ];
@@ -78,10 +75,6 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
                 }`}>
                   {option.title}
                 </h3>
-                
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  {option.description}
-                </p>
               </div>
             </label>
           );

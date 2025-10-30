@@ -275,7 +275,7 @@ export default function ExcelGenerator({
                 >
                   <div className="flex items-center gap-3">
                     <FileJson className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm font-medium text-gray-700">{file.name}</span>
+                    <span className="text-sm font-medium text-gray-700">{file.name.replace(/\.(xlsx|xls|json)$/i, '')}</span>
                   </div>
 
                   <div className="flex gap-2">

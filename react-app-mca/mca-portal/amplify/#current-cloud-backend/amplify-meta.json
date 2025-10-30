@@ -1,0 +1,16 @@
+{
+  "providers": {
+    "awscloudformation": {
+      "AuthRoleName": "amplify-mcaportal-dev-a9035-authRole",
+      "UnauthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-a9035-unauthRole",
+      "AuthRoleArn": "arn:aws:iam::008151863854:role/amplify-mcaportal-dev-a9035-authRole",
+      "Region": "us-east-2",
+      "DeploymentBucketName": "amplify-mcaportal-dev-a9035-deployment",
+      "UnauthRoleName": "amplify-mcaportal-dev-a9035-unauthRole",
+      "StackName": "amplify-mcaportal-dev-a9035",
+      "StackId": "arn:aws:cloudformation:us-east-2:008151863854:stack/amplify-mcaportal-dev-a9035/3b66c020-b5d0-11f0-86b8-0a06cf64622f",
+      "AmplifyAppId": "d1z6lylimnwukj"
+    }
+  },
+  "auth": {}
+}
