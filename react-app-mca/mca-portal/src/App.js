@@ -1,7 +1,10 @@
-// src/App.js
+// src/App.js - Updated with custom sign-up fields
+
 import React, { useState, useEffect } from 'react';
 import { AWS_CONFIG } from './config';
 import Header from './components/Header';
+import { Authenticator } from '@aws-amplify/ui-react';
+import '@aws-amplify/ui-react/styles.css';
 import StatusMessage from './components/StatusMessage';
 import DocumentTypeSelector from './components/DocumentTypeSelector';
 import UploadSection from './components/UploadSection';
@@ -237,7 +240,7 @@ export default function App() {
     }
 
     let pollCount = 0;
-    const maxPolls = 36; // Poll for 6 minutes (36 * 10 seconds)
+    const maxPolls = 36;
 
     const interval = setInterval(async () => {
       pollCount++;
@@ -329,42 +332,75 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="max-w-7xl mx-auto">
-        <Header />
+    <Authenticator
+      signUpAttributes={['email', 'name']}
+      formFields={{
+        signUp: {
+          name: {
+            label: 'Full Name',
+            placeholder: 'Enter your full name',
+            order: 1,
+            isRequired: true
+          },
+          email: {
+            label: 'Email Address',
+            placeholder: 'Enter your email',
+            order: 2,
+            isRequired: true
+          },
+          password: {
+            label: 'Password',
+            placeholder: 'Enter your password',
+            order: 3,
+            isRequired: true
+          },
+          confirm_password: {
+            label: 'Confirm Password',
+            placeholder: 'Confirm your password',
+            order: 4
+          }
+        }
+      }}
+    >
+      {({ signOut, user }) => (
+        <div className="min-h-screen bg-gray-100">
+          <div className="max-w-7xl mx-auto">
+            <Header user={user} onSignOut={signOut} />
 
-        {/* Status Message */}
-        <StatusMessage message={message} />
+            {/* Status Message */}
+            <StatusMessage message={message} />
 
-        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          {/* Document Type Selector */}
-          <DocumentTypeSelector
-            documentType={documentType}
-            onChange={handleDocumentTypeChange}
-          />
+            <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+              {/* Document Type Selector */}
+              <DocumentTypeSelector
+                documentType={documentType}
+                onChange={handleDocumentTypeChange}
+              />
 
-          {/* Upload Section */}
-          <UploadSection
-            selectedFile={selectedFile}
-            onFileSelect={handleFileSelect}
-            onUpload={handleUpload}
-            isUploading={isUploading}
-            uploadProgress={uploadProgress}
-            isPolling={isPolling}
-            uploadPath={uploadPath}
-            resultsPath={resultsPath}
-            onCheckResults={() => setCurrentPath(resultsPath)}
-          />
+              {/* Upload Section */}
+              <UploadSection
+                selectedFile={selectedFile}
+                onFileSelect={handleFileSelect}
+                onUpload={handleUpload}
+                isUploading={isUploading}
+                uploadProgress={uploadProgress}
+                isPolling={isPolling}
+                uploadPath={uploadPath}
+                resultsPath={resultsPath}
+                onCheckResults={() => setCurrentPath(resultsPath)}
+              />
 
-          {/* Excel Generator Section */}
-          <ExcelGenerator
-            documentType={documentType}
-            s3Client={s3Client}
-            bucketName={AWS_CONFIG.bucketName}
-            onShowMessage={showMessage}
-          />
+              {/* Excel Generator Section */}
+              <ExcelGenerator
+                documentType={documentType}
+                s3Client={s3Client}
+                bucketName={AWS_CONFIG.bucketName}
+                onShowMessage={showMessage}
+              />
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Authenticator>
   );
 }
