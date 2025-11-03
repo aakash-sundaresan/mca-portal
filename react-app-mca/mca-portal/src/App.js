@@ -125,7 +125,6 @@ export default function App() {
       setUserAttributes(attributes);
       setIsAuthenticated(true);
     } catch (error) {
-      console.log('No authenticated user');
       setIsAuthenticated(false);
     } finally {
       setIsCheckingAuth(false);
@@ -237,11 +236,7 @@ export default function App() {
   
     setIsLoading(true);
     
-    console.log('🔍 Attempting to list with:', {
-      Bucket: AWS_CONFIG.bucketName,
-      Prefix: prefix,
-      cognitoIdentityId
-    });
+    
     
     try {
       const params = {
@@ -388,7 +383,7 @@ export default function App() {
 
       // Step 3: Get the correct Lambda URL based on document type
       const LAMBDA_URLS = {
-        'auditors-report': 'https://r9np4lxwsf.execute-api.us-east-2.amazonaws.com/default/auditors-report-processing',
+        'auditors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/process',
         'directors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/directors-report-processing',
         'aoc4': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/aoc4-processing'
       };
@@ -405,8 +400,6 @@ export default function App() {
         template_key: templateKey
       };
       
-      console.log(`🚀 Calling ${documentType} Lambda with payload:`, requestPayload);
-      console.log(`📍 API URL: ${LAMBDA_URL}`);
       
       const response = await fetch(LAMBDA_URL, {
         method: 'POST',
@@ -416,10 +409,8 @@ export default function App() {
         body: JSON.stringify(requestPayload)
       });
 
-      console.log('📡 Lambda response status:', response.status);
       
       const result = await response.json();
-      console.log('📦 Lambda response body:', result);
       
       if (!response.ok) {
         const errorBody = typeof result.body === 'string' ? JSON.parse(result.body) : result.body || result;
@@ -463,9 +454,6 @@ export default function App() {
         const baseFileName = fileName.replace(/\.[^/.]+$/, '');
         const filledPrefix = `${resultsPath}${baseFileName}_filled_`;
 
-        console.log(
-          `Polling attempt ${pollCount}/${maxPolls} - Looking for: ${filledPrefix}*.xlsx`
-        );
 
         const listParams = {
           Bucket: AWS_CONFIG.bucketName,
@@ -564,10 +552,8 @@ export default function App() {
         Prefix: prefix
       }).promise();
 
-      console.log('✅ S3 list success:', result);
       return result;
     } catch (err) {
-      console.error('❌ S3 list error:', err);
       return err;
     }
   };

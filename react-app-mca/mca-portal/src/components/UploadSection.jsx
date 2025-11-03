@@ -1,7 +1,8 @@
-// src/components/UploadSection.jsx - Complete unified version
+// src/components/UploadSection.jsx - With upload limit check
 import React, { useState, useRef } from 'react';
-import { Upload, RefreshCw, CloudUpload, CheckCircle, Info, FileUp, FileText, FileSpreadsheet } from 'lucide-react';
+import { Upload, RefreshCw, CloudUpload, CheckCircle, Info, FileUp, FileText, FileSpreadsheet, AlertCircle } from 'lucide-react';
 import { formatFileSize } from '../utils/helpers';
+import { checkUploadLimit } from '../services/api';
 
 export default function UploadSection({ 
   selectedDocumentFile,
@@ -18,6 +19,8 @@ export default function UploadSection({
 }) {
   const [isDraggingDocument, setIsDraggingDocument] = useState(false);
   const [isDraggingTemplate, setIsDraggingTemplate] = useState(false);
+  const [isCheckingLimit, setIsCheckingLimit] = useState(false);
+  const [limitError, setLimitError] = useState(null);
   const documentInputRef = useRef(null);
   const templateInputRef = useRef(null);
 
@@ -61,6 +64,31 @@ export default function UploadSection({
     }
   };
 
+  const handleUploadClick = async () => {
+    // Clear any previous errors
+    setLimitError(null);
+    setIsCheckingLimit(true);
+
+    try {
+      // Check upload limit before proceeding
+      const limitCheck = await checkUploadLimit();
+      
+      if (!limitCheck.allowed) {
+        setLimitError(limitCheck.message);
+        setIsCheckingLimit(false);
+        return;
+      }
+
+      // Proceed with upload
+      setIsCheckingLimit(false);
+      onUpload();
+    } catch (error) {
+      console.error('Error checking upload limit:', error);
+      setLimitError('Failed to verify upload limit. Please try again.');
+      setIsCheckingLimit(false);
+    }
+  };
+
   const bothFilesSelected = selectedDocumentFile && selectedTemplateFile;
 
   return (
@@ -82,9 +110,28 @@ export default function UploadSection({
             <p className="text-gray-600 text-xs">
               Upload both your document and Excel template together. The system will process them and generate a filled Excel file automatically.
             </p>
+            <p className="text-gray-600 text-xs font-medium">
+              Free limit: 2 documents across all types (AOC4, Auditors Report, Directors Report)
+            </p>
           </div>
         </div>
       </div>
+
+      {/* Limit Error Alert */}
+      {limitError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-5">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-900 text-sm mb-1">Upload Limit Reached</p>
+              <p className="text-sm text-red-700">{limitError}</p>
+              <p className="text-xs text-red-600 mt-2">
+                Please contact the administrator to upgrade your account.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Two Upload Areas Side by Side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
@@ -202,18 +249,23 @@ export default function UploadSection({
 
       {/* Submit Button */}
       <button
-        onClick={onUpload}
-        disabled={!bothFilesSelected || isUploading}
+        onClick={handleUploadClick}
+        disabled={!bothFilesSelected || isUploading || isCheckingLimit}
         className={`
           w-full px-6 py-3 rounded-lg font-medium text-base
           transition-colors flex items-center justify-center gap-2
-          ${bothFilesSelected && !isUploading
+          ${bothFilesSelected && !isUploading && !isCheckingLimit
             ? 'bg-blue-600 text-white hover:bg-blue-700'
             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
           }
         `}
       >
-        {isUploading ? (
+        {isCheckingLimit ? (
+          <>
+            <RefreshCw className="w-5 h-5 animate-spin" />
+            Checking limit...
+          </>
+        ) : isUploading ? (
           <>
             <RefreshCw className="w-5 h-5 animate-spin" />
             Processing... {uploadProgress}%

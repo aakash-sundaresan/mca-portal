@@ -17,11 +17,3 @@ export const AWS_CONFIG = {
     Object.assign(AWS_CONFIG, window.AWS_CONFIG);
   }
   
-  // Log configuration status (remove in production)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('AWS Configuration Status:');
-    console.log('Bucket:', AWS_CONFIG.bucketName);
-    console.log('Region:', AWS_CONFIG.region);
-    console.log('Access Key:', AWS_CONFIG.accessKeyId ? '✓ Set' : '✗ Not Set');
-    console.log('Secret Key:', AWS_CONFIG.secretAccessKey ? '✓ Set' : '✗ Not Set');
-  }
