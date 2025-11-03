@@ -5,7 +5,10 @@ export const AWS_CONFIG = {
     bucketName: process.env.REACT_APP_S3_BUCKET_NAME || 'your-bucket-name',
     region: process.env.REACT_APP_AWS_REGION || 'us-east-1',
     accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID || 'your-access-key-id',
-    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY || 'your-secret-access-key'
+    secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY || 'your-secret-access-key',
+    userPoolId: process.env.REACT_APP_AWS_USER_POOL_ID,
+    userPoolClientId: process.env.REACT_APP_AWS_USER_POOL_CLIENT_ID,
+    identityPoolId: process.env.REACT_APP_AWS_IDENTITY_POOL_ID
   };
   
   // For development, you can also use window.AWS_CONFIG

@@ -1,24 +1,96 @@
-// src/App.js - Updated with custom sign-up fields
+// src/App.js - Complete unified version with separate APIs
 
 import React, { useState, useEffect } from 'react';
 import { AWS_CONFIG } from './config';
 import Header from './components/Header';
-import { Authenticator } from '@aws-amplify/ui-react';
-import '@aws-amplify/ui-react/styles.css';
+import Login from './components/Login';
+import { fetchAuthSession } from 'aws-amplify/auth';
+import SignUp from './components/SignUp';
+import { fetchUserAttributes, getCurrentUser } from 'aws-amplify/auth';
+import { signOut as amplifySignOut } from 'aws-amplify/auth';
 import StatusMessage from './components/StatusMessage';
 import DocumentTypeSelector from './components/DocumentTypeSelector';
 import UploadSection from './components/UploadSection';
-import ExcelGenerator from './components/ExcelGenerator';
+import FilledExcelViewer from './components/FilledExcelViewer';
+
+// Helper function for user-friendly error messages
+const getUserFriendlyErrorMessage = (error, context = '') => {
+  const errorString = error.message || error.toString();
+  
+  // Network/Connection errors
+  if (errorString.includes('NetworkingError') || errorString.includes('fetch')) {
+    return 'Connection error. Please check your internet and try again.';
+  }
+  
+  // Authentication errors
+  if (errorString.includes('NotAuthorizedException') || errorString.includes('credentials')) {
+    return 'Session expired. Please sign in again.';
+  }
+  
+  if (errorString.includes('Access Denied') || errorString.includes('AccessDenied')) {
+    return 'You don\'t have permission to access this file.';
+  }
+  
+  // S3 specific errors
+  if (errorString.includes('NoSuchKey') || errorString.includes('404')) {
+    return 'File not found. It may have been deleted or moved.';
+  }
+  
+  if (errorString.includes('NoSuchBucket')) {
+    return 'Storage location not found. Please contact support.';
+  }
+  
+  if (errorString.includes('RequestTimeout')) {
+    return 'Request timed out. Please try again.';
+  }
+  
+  if (errorString.includes('SlowDown') || errorString.includes('503')) {
+    return 'Service is busy. Please wait a moment and try again.';
+  }
+  
+  // File size errors
+  if (errorString.includes('EntityTooLarge')) {
+    return 'File is too large. Maximum size is 5GB.';
+  }
+  
+  // Generic context-specific messages
+  if (context === 'upload') {
+    return 'Upload failed. Please check your file and try again.';
+  }
+  
+  if (context === 'load') {
+    return 'Unable to load files. Please refresh the page.';
+  }
+  
+  if (context === 'view') {
+    return 'Unable to open file. Please try again.';
+  }
+  
+  // Default fallback
+  return 'Something went wrong. Please try again.';
+};
 
 const AWS = window.AWS;
 
 export default function App() {
+  // Auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showSignUp, setShowSignUp] = useState(false);
+  const [user, setUser] = useState(null);
+  const [userAttributes, setUserAttributes] = useState(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // App state
   const [s3Client, setS3Client] = useState(null);
   const [documentType, setDocumentType] = useState('auditors-report');
-  const [currentPath, setCurrentPath] = useState('auditors-report/json/');
+  const [currentPath, setCurrentPath] = useState('');
   const [pathHistory, setPathHistory] = useState([]);
   const [files, setFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
+  
+  // MODIFIED: Split file selection into two separate states
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
+  const [selectedTemplateFile, setSelectedTemplateFile] = useState(null);
+  
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,35 +98,72 @@ export default function App() {
   const [message, setMessage] = useState({ text: '', type: '' });
   const [isPolling, setIsPolling] = useState(false);
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [cognitoIdentityId, setCognitoIdentityId] = useState(null);
 
-  const uploadPath = `${documentType}/uploads/`;
-  const resultsPath = `${documentType}/json/`;
+  // MODIFIED: Updated paths
+  const uploadPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/uploads/` : null;
+  const templatePath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/template/` : null;
+  const resultsPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/filled/` : null;
+
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  useEffect(() => {
+    if (cognitoIdentityId && !currentPath) {
+      setCurrentPath(`${cognitoIdentityId}/${documentType}/filled/`);
+    }
+  }, [cognitoIdentityId, documentType]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const currentUser = await getCurrentUser();
+      const attributes = await fetchUserAttributes();
+      
+      setUser(currentUser);
+      setUserAttributes(attributes);
+      setIsAuthenticated(true);
+    } catch (error) {
+      console.log('No authenticated user');
+      setIsAuthenticated(false);
+    } finally {
+      setIsCheckingAuth(false);
+    }
+  };
 
   // Initialize AWS SDK
   useEffect(() => {
-    try {
-      AWS.config.update({
-        region: AWS_CONFIG.region,
-        accessKeyId: AWS_CONFIG.accessKeyId,
-        secretAccessKey: AWS_CONFIG.secretAccessKey,
-        signatureVersion: 'v4'
-      });
-
-      const s3 = new AWS.S3({
-        region: AWS_CONFIG.region,
-        credentials: new AWS.Credentials(
-          AWS_CONFIG.accessKeyId,
-          AWS_CONFIG.secretAccessKey
-        )
-      });
-
-      setS3Client(s3);
-      showMessage('System initialized successfully', 'success');
-    } catch (error) {
-      showMessage('Error initializing system: ' + error.message, 'error');
-      console.error('AWS initialization error:', error);
+    if (isAuthenticated) {
+      (async () => {
+        try {
+          const session = await fetchAuthSession();
+          const credentials = session?.credentials;
+  
+          if (!credentials) throw new Error('No valid Cognito credentials');
+  
+          const identityId = session.identityId;
+          setCognitoIdentityId(identityId);
+  
+          const s3 = new AWS.S3({
+            region: AWS_CONFIG.region,
+            credentials: {
+              accessKeyId: credentials.accessKeyId,
+              secretAccessKey: credentials.secretAccessKey,
+              sessionToken: credentials.sessionToken
+            },
+            signatureVersion: 'v4'
+          });
+  
+          setS3Client(s3);
+          showMessage('Authorized system initialized', 'success');
+        } catch (error) {
+          console.error('AWS Auth error:', error);
+          showMessage(getUserFriendlyErrorMessage(error, 'auth'), 'error');
+        }
+      })();
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Load files when path changes
   useEffect(() => {
@@ -72,6 +181,30 @@ export default function App() {
     };
   }, [pollingInterval]);
 
+  const handleLoginSuccess = async () => {
+    await checkAuthStatus();
+    showMessage('Welcome back!', 'success');
+  };
+
+  const handleSignUpSuccess = () => {
+    setShowSignUp(false);
+    showMessage('Account created! Please sign in.', 'success');
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await amplifySignOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserAttributes(null);
+      setS3Client(null);
+      showMessage('Signed out successfully', 'success');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      showMessage('Error signing out', 'error');
+    }
+  };
+
   const showMessage = (text, type = 'info') => {
     setMessage({ text, type });
     setTimeout(() => setMessage({ text: '', type: '' }), 5000);
@@ -88,7 +221,9 @@ export default function App() {
 
   const handleDocumentTypeChange = (type) => {
     setDocumentType(type);
-    const newResultsPath = `${type}/json/`;
+    const newResultsPath = cognitoIdentityId 
+      ? `${cognitoIdentityId}/${type}/filled/` 
+      : `${type}/filled/`;
     setCurrentPath(newResultsPath);
     setPathHistory([]);
     showMessage(
@@ -99,19 +234,25 @@ export default function App() {
 
   const loadFiles = async (prefix) => {
     if (!s3Client) return;
-
+  
     setIsLoading(true);
+    
+    console.log('🔍 Attempting to list with:', {
+      Bucket: AWS_CONFIG.bucketName,
+      Prefix: prefix,
+      cognitoIdentityId
+    });
+    
     try {
       const params = {
         Bucket: AWS_CONFIG.bucketName,
         Prefix: prefix,
         Delimiter: '/'
       };
-
-      const data = await s3Client.listObjectsV2(params).promise();
+  
+      const data = await s3Client.listObjectsV2(params).promise();  
       const fileList = [];
 
-      // Add parent directory
       if (prefix && prefix !== '') {
         const parentPath =
           prefix.split('/').slice(0, -2).join('/') +
@@ -124,7 +265,6 @@ export default function App() {
         });
       }
 
-      // Add folders
       if (data.CommonPrefixes) {
         data.CommonPrefixes.forEach((prefixObj) => {
           const folderName = prefixObj.Prefix.replace(prefix, '').replace(
@@ -140,7 +280,6 @@ export default function App() {
         });
       }
 
-      // Add files
       if (data.Contents) {
         data.Contents.forEach((object) => {
           if (object.Key === prefix || object.Key.endsWith('/')) return;
@@ -157,8 +296,8 @@ export default function App() {
 
       setFiles(fileList);
     } catch (error) {
-      showMessage('Error loading files: ' + error.message, 'error');
       console.error('Error loading files:', error);
+      showMessage(getUserFriendlyErrorMessage(error, 'load'), 'error');
       setFiles([]);
     } finally {
       setIsLoading(false);
@@ -182,58 +321,133 @@ export default function App() {
     }
   };
 
-  const handleFileSelect = (e) => {
+  // NEW: Separate handlers for document and template selection
+  const handleDocumentFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
-      setSelectedFile(file);
-      showMessage('File selected: ' + file.name, 'success');
+      setSelectedDocumentFile(file);
+      showMessage('Document selected: ' + file.name, 'success');
     }
   };
 
+  const handleTemplateFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedTemplateFile(file);
+      showMessage('Template selected: ' + file.name, 'success');
+    }
+  };
+
+  // MODIFIED: Unified upload handler with dynamic API selection
   const handleUpload = async () => {
-    if (!selectedFile || !s3Client) return;
+    if (!selectedDocumentFile || !selectedTemplateFile || !s3Client) {
+      showMessage('Please select both document and template files', 'error');
+      return;
+    }
 
     setIsUploading(true);
     setUploadProgress(0);
 
     try {
-      const key = `${uploadPath}${selectedFile.name}`;
-      const params = {
+      // Step 1: Upload document
+      const documentKey = `${uploadPath}${selectedDocumentFile.name}`;
+      const documentParams = {
         Bucket: AWS_CONFIG.bucketName,
-        Key: key,
-        Body: selectedFile,
-        ContentType: selectedFile.type || 'application/octet-stream'
+        Key: documentKey,
+        Body: selectedDocumentFile,
+        ContentType: selectedDocumentFile.type || 'application/octet-stream'
       };
 
-      const upload = s3Client.upload(params);
-
-      upload.on('httpUploadProgress', (progress) => {
-        const percentage = Math.round(
-          (progress.loaded / progress.total) * 100
-        );
+      const documentUpload = s3Client.upload(documentParams);
+      documentUpload.on('httpUploadProgress', (progress) => {
+        const percentage = Math.round((progress.loaded / progress.total) * 40);
         setUploadProgress(percentage);
       });
+      await documentUpload.promise();
+      
+      showMessage('Document uploaded, uploading template...', 'info');
 
-      await upload.promise();
+      // Step 2: Upload template
+      const templateKey = `${templatePath}template.xlsx`;
+      const templateParams = {
+        Bucket: AWS_CONFIG.bucketName,
+        Key: templateKey,
+        Body: selectedTemplateFile,
+        ContentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      };
 
+      const templateUpload = s3Client.upload(templateParams);
+      templateUpload.on('httpUploadProgress', (progress) => {
+        const percentage = 40 + Math.round((progress.loaded / progress.total) * 30);
+        setUploadProgress(percentage);
+      });
+      await templateUpload.promise();
+      
+      setUploadProgress(70);
+      showMessage('Both files uploaded, invoking processor...', 'info');
+
+      // Step 3: Get the correct Lambda URL based on document type
+      const LAMBDA_URLS = {
+        'auditors-report': 'https://r9np4lxwsf.execute-api.us-east-2.amazonaws.com/default/auditors-report-processing',
+        'directors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/directors-report-processing',
+        'aoc4': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/aoc4-processing'
+      };
+      
+      const LAMBDA_URL = LAMBDA_URLS[documentType];
+      
+      if (!LAMBDA_URL) {
+        throw new Error(`No Lambda URL configured for document type: ${documentType}`);
+      }
+      
+      const requestPayload = {
+        bucket: AWS_CONFIG.bucketName,
+        document_key: documentKey,
+        template_key: templateKey
+      };
+      
+      console.log(`🚀 Calling ${documentType} Lambda with payload:`, requestPayload);
+      console.log(`📍 API URL: ${LAMBDA_URL}`);
+      
+      const response = await fetch(LAMBDA_URL, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestPayload)
+      });
+
+      console.log('📡 Lambda response status:', response.status);
+      
+      const result = await response.json();
+      console.log('📦 Lambda response body:', result);
+      
+      if (!response.ok) {
+        const errorBody = typeof result.body === 'string' ? JSON.parse(result.body) : result.body || result;
+        throw new Error(errorBody?.error || result.error || 'Processing failed');
+      }
+
+      setUploadProgress(100);
       showMessage(
-        'File uploaded successfully. Processing may take a few minutes.',
+        'Files uploaded successfully. Processing may take a few minutes.',
         'success'
       );
       
-      const uploadedFileName = selectedFile.name;
-      setSelectedFile(null);
+      const uploadedFileName = selectedDocumentFile.name;
+      setSelectedDocumentFile(null);
+      setSelectedTemplateFile(null);
       setIsPolling(true);
       startPolling(uploadedFileName);
+      
     } catch (error) {
+      console.error('❌ Upload error:', error);
       showMessage('Upload failed: ' + error.message, 'error');
-      console.error('Upload error:', error);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
     }
   };
 
+  // MODIFIED: Poll for filled Excel files instead of JSON
   const startPolling = (fileName) => {
     if (pollingInterval) {
       clearInterval(pollingInterval);
@@ -247,28 +461,26 @@ export default function App() {
 
       try {
         const baseFileName = fileName.replace(/\.[^/.]+$/, '');
-        const jsonKey = `${resultsPath}${baseFileName}.json`;
+        const filledPrefix = `${resultsPath}${baseFileName}_filled_`;
 
         console.log(
-          `Polling attempt ${pollCount}/${maxPolls} - Looking for: ${jsonKey}`
+          `Polling attempt ${pollCount}/${maxPolls} - Looking for: ${filledPrefix}*.xlsx`
         );
 
-        const exists = await checkFileExists(jsonKey);
+        const listParams = {
+          Bucket: AWS_CONFIG.bucketName,
+          Prefix: filledPrefix
+        };
+
+        const data = await s3Client.listObjectsV2(listParams).promise();
+        const exists = data.Contents && data.Contents.length > 0;
 
         if (exists) {
           clearInterval(interval);
           setPollingInterval(null);
           setIsPolling(false);
-          showMessage('Processing complete. Result file is ready.', 'success');
+          showMessage('Processing complete! Your filled Excel is ready.', 'success');
           setCurrentPath(resultsPath);
-          
-          setTimeout(() => {
-            viewFile({
-              name: `${baseFileName}.json`,
-              key: jsonKey,
-              type: 'json'
-            });
-          }, 500);
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -279,7 +491,7 @@ export default function App() {
         setPollingInterval(null);
         setIsPolling(false);
         showMessage(
-          'Polling stopped after 6 minutes. Please check manually for results.',
+          'Polling stopped after 6 minutes. Please check results manually.',
           'info'
         );
       }
@@ -331,76 +543,107 @@ export default function App() {
     }
   };
 
-  return (
-    <Authenticator
-      signUpAttributes={['email', 'name']}
-      formFields={{
-        signUp: {
-          name: {
-            label: 'Full Name',
-            placeholder: 'Enter your full name',
-            order: 1,
-            isRequired: true
-          },
-          email: {
-            label: 'Email Address',
-            placeholder: 'Enter your email',
-            order: 2,
-            isRequired: true
-          },
-          password: {
-            label: 'Password',
-            placeholder: 'Enter your password',
-            order: 3,
-            isRequired: true
-          },
-          confirm_password: {
-            label: 'Confirm Password',
-            placeholder: 'Confirm your password',
-            order: 4
-          }
-        }
-      }}
-    >
-      {({ signOut, user }) => (
-        <div className="min-h-screen bg-gray-100">
-          <div className="max-w-7xl mx-auto">
-            <Header user={user} onSignOut={signOut} />
+  // Debug helper to test S3 directly from browser console
+  window.debugS3List = async (prefix) => {
+    try {
+      const session = await fetchAuthSession();
+      const credentials = session.credentials;
 
-            {/* Status Message */}
-            <StatusMessage message={message} />
+      const s3 = new AWS.S3({
+        region: AWS_CONFIG.region,
+        credentials: {
+          accessKeyId: credentials.accessKeyId,
+          secretAccessKey: credentials.secretAccessKey,
+          sessionToken: credentials.sessionToken
+        },
+        signatureVersion: 'v4'
+      });
 
-            <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-              {/* Document Type Selector */}
-              <DocumentTypeSelector
-                documentType={documentType}
-                onChange={handleDocumentTypeChange}
-              />
+      const result = await s3.listObjectsV2({
+        Bucket: AWS_CONFIG.bucketName,
+        Prefix: prefix
+      }).promise();
 
-              {/* Upload Section */}
-              <UploadSection
-                selectedFile={selectedFile}
-                onFileSelect={handleFileSelect}
-                onUpload={handleUpload}
-                isUploading={isUploading}
-                uploadProgress={uploadProgress}
-                isPolling={isPolling}
-                uploadPath={uploadPath}
-                resultsPath={resultsPath}
-                onCheckResults={() => setCurrentPath(resultsPath)}
-              />
-
-              {/* Excel Generator Section */}
-              <ExcelGenerator
-                documentType={documentType}
-                s3Client={s3Client}
-                bucketName={AWS_CONFIG.bucketName}
-                onShowMessage={showMessage}
-              />
-            </div>
-          </div>
+      console.log('✅ S3 list success:', result);
+      return result;
+    } catch (err) {
+      console.error('❌ S3 list error:', err);
+      return err;
+    }
+  };
+  
+  // Show loading state while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
         </div>
-      )}
-    </Authenticator>
+      </div>
+    );
+  }
+
+  // Show auth screens if not authenticated
+  if (!isAuthenticated) {
+    if (showSignUp) {
+      return (
+        <SignUp
+          onSwitchToLogin={() => setShowSignUp(false)}
+          onSignUpSuccess={handleSignUpSuccess}
+        />
+      );
+    }
+    return (
+      <Login
+        onSwitchToSignUp={() => setShowSignUp(true)}
+        onLoginSuccess={handleLoginSuccess}
+      />
+    );
+  }
+
+  // Show main app if authenticated
+  const displayUser = {
+    ...user,
+    attributes: userAttributes || {}
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-7xl mx-auto">
+        <Header user={displayUser} onSignOut={handleSignOut} />
+
+        <StatusMessage message={message} />
+
+        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+          <DocumentTypeSelector
+            documentType={documentType}
+            onChange={handleDocumentTypeChange}
+          />
+
+          <UploadSection
+            selectedDocumentFile={selectedDocumentFile}
+            selectedTemplateFile={selectedTemplateFile}
+            onDocumentSelect={handleDocumentFileSelect}
+            onTemplateSelect={handleTemplateFileSelect}
+            onUpload={handleUpload}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            isPolling={isPolling}
+            uploadPath={uploadPath}
+            templatePath={templatePath}
+            onCheckResults={() => setCurrentPath(resultsPath)}
+          />
+
+          <FilledExcelViewer
+            documentType={documentType}
+            s3Client={s3Client}
+            bucketName={AWS_CONFIG.bucketName}
+            identityId={cognitoIdentityId}
+            onShowMessage={showMessage}
+          />
+        </div>
+      </div>
+    </div>
   );
 }

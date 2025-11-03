@@ -1,40 +1,67 @@
-// src/components/UploadSection.jsx
+// src/components/UploadSection.jsx - Complete unified version
 import React, { useState, useRef } from 'react';
-import { Upload, RefreshCw, CloudUpload, CheckCircle, Info, FileUp } from 'lucide-react';
+import { Upload, RefreshCw, CloudUpload, CheckCircle, Info, FileUp, FileText, FileSpreadsheet } from 'lucide-react';
 import { formatFileSize } from '../utils/helpers';
 
 export default function UploadSection({ 
-  selectedFile, 
-  onFileSelect, 
+  selectedDocumentFile,
+  selectedTemplateFile,
+  onDocumentSelect,
+  onTemplateSelect,
   onUpload, 
   isUploading, 
   uploadProgress, 
   isPolling, 
-  uploadPath, 
-  resultsPath, 
+  uploadPath,
+  templatePath,
   onCheckResults 
 }) {
-  const [isDragging, setIsDragging] = useState(false);
-  const fileInputRef = useRef(null);
+  const [isDraggingDocument, setIsDraggingDocument] = useState(false);
+  const [isDraggingTemplate, setIsDraggingTemplate] = useState(false);
+  const documentInputRef = useRef(null);
+  const templateInputRef = useRef(null);
 
-  const handleDragOver = (e) => {
+  // Document drag handlers
+  const handleDocumentDragOver = (e) => {
     e.preventDefault();
-    setIsDragging(true);
+    setIsDraggingDocument(true);
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
+  const handleDocumentDragLeave = () => {
+    setIsDraggingDocument(false);
   };
 
-  const handleDrop = (e) => {
+  const handleDocumentDrop = (e) => {
     e.preventDefault();
-    setIsDragging(false);
+    setIsDraggingDocument(false);
     const file = e.dataTransfer.files[0];
     if (file) {
       const event = { target: { files: [file] } };
-      onFileSelect(event);
+      onDocumentSelect(event);
     }
   };
+
+  // Template drag handlers
+  const handleTemplateDragOver = (e) => {
+    e.preventDefault();
+    setIsDraggingTemplate(true);
+  };
+
+  const handleTemplateDragLeave = () => {
+    setIsDraggingTemplate(false);
+  };
+
+  const handleTemplateDrop = (e) => {
+    e.preventDefault();
+    setIsDraggingTemplate(false);
+    const file = e.dataTransfer.files[0];
+    if (file) {
+      const event = { target: { files: [file] } };
+      onTemplateSelect(event);
+    }
+  };
+
+  const bothFilesSelected = selectedDocumentFile && selectedTemplateFile;
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -43,7 +70,7 @@ export default function UploadSection({
           <CloudUpload className="w-5 h-5 text-blue-600" />
         </div>
         <h2 className="text-lg font-semibold text-gray-900">
-          Upload Document
+          Upload Files
         </h2>
       </div>
       
@@ -53,82 +80,151 @@ export default function UploadSection({
           <Info className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
           <div className="space-y-2 text-sm">
             <p className="text-gray-600 text-xs">
-              Uploaded files will be processed and results will be available in the results section.
+              Upload both your document and Excel template together. The system will process them and generate a filled Excel file automatically.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Upload Area */}
-      <div
-        onClick={() => fileInputRef.current?.click()}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`
-          border-2 border-dashed rounded-lg p-10 text-center cursor-pointer 
-          transition-colors
-          ${isDragging
-            ? 'border-blue-500 bg-blue-50'
-            : selectedFile
-            ? 'border-green-500 bg-green-50'
-            : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'}
-        `}
-      >
+      {/* Two Upload Areas Side by Side */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+        
+        {/* Document Upload Area */}
         <div>
-          {selectedFile ? (
-            <>
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                <CheckCircle className="w-8 h-8 text-green-600" />
-              </div>
-              <div className="text-base font-medium text-gray-900 mb-1">{selectedFile.name}</div>
-              <div className="text-sm text-gray-600">
-                {formatFileSize(selectedFile.size)}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-100 rounded-full mb-4">
-                <Upload className="w-8 h-8 text-gray-400" />
-              </div>
-              <div className="text-base font-medium text-gray-900 mb-1">
-                Click to select a file or drag and drop
-              </div>
-              <div className="text-sm text-gray-500">
-                PDF, DOC, DOCX, XLS, XLSX, TXT, JPG, PNG
-              </div>
-            </>
-          )}
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            1. Document to Process
+          </label>
+          <div
+            onClick={() => documentInputRef.current?.click()}
+            onDragOver={handleDocumentDragOver}
+            onDragLeave={handleDocumentDragLeave}
+            onDrop={handleDocumentDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-6 text-center cursor-pointer 
+              transition-colors min-h-[200px] flex flex-col items-center justify-center
+              ${isDraggingDocument
+                ? 'border-blue-500 bg-blue-50'
+                : selectedDocumentFile
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'}
+            `}
+          >
+            {selectedDocumentFile ? (
+              <>
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1 break-all px-2">
+                  {selectedDocumentFile.name}
+                </div>
+                <div className="text-xs text-gray-600">
+                  {formatFileSize(selectedDocumentFile.size)}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <FileText className="w-6 h-6 text-gray-400" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  Click or drag to upload
+                </div>
+                <div className="text-xs text-gray-500">
+                  PDF or DOCX or XLSX
+                </div>
+              </>
+            )}
+          </div>
+          <input
+            ref={documentInputRef}
+            type="file"
+            onChange={onDocumentSelect}
+            className="hidden"
+            accept=".pdf,.docx,.xlsx"
+          />
+        </div>
+
+        {/* Template Upload Area */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            2. Excel Template
+          </label>
+          <div
+            onClick={() => templateInputRef.current?.click()}
+            onDragOver={handleTemplateDragOver}
+            onDragLeave={handleTemplateDragLeave}
+            onDrop={handleTemplateDrop}
+            className={`
+              border-2 border-dashed rounded-lg p-6 text-center cursor-pointer 
+              transition-colors min-h-[200px] flex flex-col items-center justify-center
+              ${isDraggingTemplate
+                ? 'border-blue-500 bg-blue-50'
+                : selectedTemplateFile
+                ? 'border-green-500 bg-green-50'
+                : 'border-gray-300 bg-gray-50 hover:border-gray-400 hover:bg-gray-100'}
+            `}
+          >
+            {selectedTemplateFile ? (
+              <>
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mb-3">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1 break-all px-2">
+                  {selectedTemplateFile.name}
+                </div>
+                <div className="text-xs text-gray-600">
+                  {formatFileSize(selectedTemplateFile.size)}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-3">
+                  <FileSpreadsheet className="w-6 h-6 text-gray-400" />
+                </div>
+                <div className="text-sm font-medium text-gray-900 mb-1">
+                  Click or drag to upload
+                </div>
+                <div className="text-xs text-gray-500">
+                  XLSX or XLS
+                </div>
+              </>
+            )}
+          </div>
+          <input
+            ref={templateInputRef}
+            type="file"
+            onChange={onTemplateSelect}
+            className="hidden"
+            accept=".xlsx,.xls"
+          />
         </div>
       </div>
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        onChange={onFileSelect}
-        className="hidden"
-        accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.jpg,.jpeg,.png,.gif"
-      />
-
-      {/* Upload Button */}
+      {/* Submit Button */}
       <button
         onClick={onUpload}
-        disabled={!selectedFile || isUploading}
-        className="mt-5 w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-medium text-base
-                   hover:bg-blue-700
-                   disabled:bg-gray-300 disabled:cursor-not-allowed
-                   transition-colors
-                   flex items-center justify-center gap-2"
+        disabled={!bothFilesSelected || isUploading}
+        className={`
+          w-full px-6 py-3 rounded-lg font-medium text-base
+          transition-colors flex items-center justify-center gap-2
+          ${bothFilesSelected && !isUploading
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }
+        `}
       >
         {isUploading ? (
           <>
             <RefreshCw className="w-5 h-5 animate-spin" />
-            Uploading... {uploadProgress}%
+            Processing... {uploadProgress}%
           </>
         ) : (
           <>
             <FileUp className="w-5 h-5" />
-            Upload Document
+            {bothFilesSelected 
+              ? 'Process & Generate Excel' 
+              : 'Select both files to continue'
+            }
           </>
         )}
       </button>
@@ -142,7 +238,9 @@ export default function UploadSection({
               style={{ width: `${uploadProgress}%` }}
             />
           </div>
-          <p className="text-center text-sm text-gray-600 mt-2">Processing your document...</p>
+          <p className="text-center text-sm text-gray-600 mt-2">
+            Uploading files and processing document...
+          </p>
         </div>
       )}
 
@@ -154,14 +252,14 @@ export default function UploadSection({
               <RefreshCw className="w-5 h-5 text-blue-600 animate-spin" />
               <div>
                 <p className="font-medium text-gray-900 text-sm">Processing in Progress</p>
-                <p className="text-xs text-gray-600">Checking for results every 10 seconds</p>
+                <p className="text-xs text-gray-600">Generating your filled Excel file...</p>
               </div>
             </div>
             <button
               onClick={onCheckResults}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
             >
-              Check Now
+              Check Results
             </button>
           </div>
         </div>
