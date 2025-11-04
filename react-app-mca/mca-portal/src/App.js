@@ -1,4 +1,4 @@
-// src/App.js - Complete unified version with separate APIs
+// src/App.js - Professional UI with Black/Gray Dark Mode Theme
 
 import React, { useState, useEffect } from 'react';
 import { AWS_CONFIG } from './config';
@@ -73,6 +73,17 @@ const getUserFriendlyErrorMessage = (error, context = '') => {
 const AWS = window.AWS;
 
 export default function App() {
+  // Theme state
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    // Check localStorage first
+    const saved = localStorage.getItem('theme');
+    if (saved) {
+      return saved === 'dark';
+    }
+    // Otherwise check system preference
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
+
   // Auth state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showSignUp, setShowSignUp] = useState(false);
@@ -87,7 +98,6 @@ export default function App() {
   const [pathHistory, setPathHistory] = useState([]);
   const [files, setFiles] = useState([]);
   
-  // MODIFIED: Split file selection into two separate states
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [selectedTemplateFile, setSelectedTemplateFile] = useState(null);
   
@@ -100,10 +110,25 @@ export default function App() {
   const [pollingInterval, setPollingInterval] = useState(null);
   const [cognitoIdentityId, setCognitoIdentityId] = useState(null);
 
-  // MODIFIED: Updated paths
   const uploadPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/uploads/` : null;
   const templatePath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/template/` : null;
   const resultsPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/filled/` : null;
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDarkMode]);
+
+  // Toggle theme function
+  const toggleTheme = () => {
+    setIsDarkMode(!isDarkMode);
+  };
 
   // Check if user is already logged in on mount
   useEffect(() => {
@@ -155,7 +180,7 @@ export default function App() {
           });
   
           setS3Client(s3);
-          showMessage('Authorized system initialized', 'success');
+          showMessage('System initialized successfully', 'success');
         } catch (error) {
           console.error('AWS Auth error:', error);
           showMessage(getUserFriendlyErrorMessage(error, 'auth'), 'error');
@@ -187,7 +212,7 @@ export default function App() {
 
   const handleSignUpSuccess = () => {
     setShowSignUp(false);
-    showMessage('Account created! Please sign in.', 'success');
+    showMessage('Account created successfully. Please sign in.', 'success');
   };
 
   const handleSignOut = async () => {
@@ -235,8 +260,6 @@ export default function App() {
     if (!s3Client) return;
   
     setIsLoading(true);
-    
-    
     
     try {
       const params = {
@@ -316,7 +339,6 @@ export default function App() {
     }
   };
 
-  // NEW: Separate handlers for document and template selection
   const handleDocumentFileSelect = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -333,7 +355,6 @@ export default function App() {
     }
   };
 
-  // MODIFIED: Unified upload handler with dynamic API selection
   const handleUpload = async () => {
     if (!selectedDocumentFile || !selectedTemplateFile || !s3Client) {
       showMessage('Please select both document and template files', 'error');
@@ -400,7 +421,6 @@ export default function App() {
         template_key: templateKey
       };
       
-      
       const response = await fetch(LAMBDA_URL, {
         method: 'POST',
         headers: { 
@@ -409,7 +429,6 @@ export default function App() {
         body: JSON.stringify(requestPayload)
       });
 
-      
       const result = await response.json();
       
       if (!response.ok) {
@@ -438,7 +457,6 @@ export default function App() {
     }
   };
 
-  // MODIFIED: Poll for filled Excel files instead of JSON
   const startPolling = (fileName) => {
     if (pollingInterval) {
       clearInterval(pollingInterval);
@@ -453,7 +471,6 @@ export default function App() {
       try {
         const baseFileName = fileName.replace(/\.[^/.]+$/, '');
         const filledPrefix = `${resultsPath}${baseFileName}_filled_`;
-
 
         const listParams = {
           Bucket: AWS_CONFIG.bucketName,
@@ -561,10 +578,13 @@ export default function App() {
   // Show loading state while checking auth
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-black dark:via-gray-950 dark:to-black">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-gray-200 dark:border-gray-800 border-t-gray-900 dark:border-t-gray-100 mx-auto"></div>
+            <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-r-gray-400 dark:border-r-gray-600 animate-spin mx-auto" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }}></div>
+          </div>
+          <p className="mt-6 text-gray-600 dark:text-gray-300 font-medium">Loading your workspace...</p>
         </div>
       </div>
     );
@@ -595,40 +615,68 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-100 to-gray-50 dark:from-black dark:via-gray-950 dark:to-black transition-colors duration-300">
       <div className="max-w-7xl mx-auto">
-        <Header user={displayUser} onSignOut={handleSignOut} />
+        <Header 
+          user={displayUser} 
+          onSignOut={handleSignOut}
+          isDarkMode={isDarkMode}
+          onToggleTheme={toggleTheme}
+        />
 
         <StatusMessage message={message} />
 
-        <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-          <DocumentTypeSelector
-            documentType={documentType}
-            onChange={handleDocumentTypeChange}
-          />
+        <main className="px-4 sm:px-6 lg:px-8 py-8">
+          <div className="space-y-8">
+            {/* Document Type Selector Card */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-800 p-6 backdrop-blur-sm transition-colors duration-300">
+              <DocumentTypeSelector
+                documentType={documentType}
+                onChange={handleDocumentTypeChange}
+              />
+            </div>
 
-          <UploadSection
-            selectedDocumentFile={selectedDocumentFile}
-            selectedTemplateFile={selectedTemplateFile}
-            onDocumentSelect={handleDocumentFileSelect}
-            onTemplateSelect={handleTemplateFileSelect}
-            onUpload={handleUpload}
-            isUploading={isUploading}
-            uploadProgress={uploadProgress}
-            isPolling={isPolling}
-            uploadPath={uploadPath}
-            templatePath={templatePath}
-            onCheckResults={() => setCurrentPath(resultsPath)}
-          />
+            {/* Upload Section Card */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-800 overflow-hidden backdrop-blur-sm transition-colors duration-300">
+              <div className="border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-transparent dark:from-gray-800/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Upload Documents</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select your document and template to begin processing</p>
+              </div>
+              <div className="p-6">
+                <UploadSection
+                  selectedDocumentFile={selectedDocumentFile}
+                  selectedTemplateFile={selectedTemplateFile}
+                  onDocumentSelect={handleDocumentFileSelect}
+                  onTemplateSelect={handleTemplateFileSelect}
+                  onUpload={handleUpload}
+                  isUploading={isUploading}
+                  uploadProgress={uploadProgress}
+                  isPolling={isPolling}
+                  uploadPath={uploadPath}
+                  templatePath={templatePath}
+                  onCheckResults={() => setCurrentPath(resultsPath)}
+                />
+              </div>
+            </div>
 
-          <FilledExcelViewer
-            documentType={documentType}
-            s3Client={s3Client}
-            bucketName={AWS_CONFIG.bucketName}
-            identityId={cognitoIdentityId}
-            onShowMessage={showMessage}
-          />
-        </div>
+            {/* Results Viewer Card */}
+            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200/60 dark:border-gray-800 overflow-hidden backdrop-blur-sm transition-colors duration-300">
+              <div className="border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-transparent dark:from-gray-800/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
+                <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Processed Files</h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">View and download your completed documents</p>
+              </div>
+              <div className="p-6">
+                <FilledExcelViewer
+                  documentType={documentType}
+                  s3Client={s3Client}
+                  bucketName={AWS_CONFIG.bucketName}
+                  identityId={cognitoIdentityId}
+                  onShowMessage={showMessage}
+                />
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );
