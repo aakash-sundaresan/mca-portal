@@ -183,7 +183,7 @@ export default function UploadSection({
                   Click or drag to upload
                 </div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">
-                  PDF, DOCX, or XLSX
+                  PDF, DOCX, XLS or XLSX
                 </div>
                 <div className="mt-3 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
                   <Upload className="w-3 h-3" />
@@ -200,7 +200,7 @@ export default function UploadSection({
             type="file"
             onChange={onDocumentSelect}
             className="hidden"
-            accept=".pdf,.docx,.xlsx"
+            accept=".pdf,.docx,.xlsx,.xls"
           />
         </div>
 
