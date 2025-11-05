@@ -52,43 +52,49 @@ export const checkUploadLimit = async () => {
   try {
     const userId = await getUserId();
     const s3Client = await getS3Client();
-    
-    
+
+    // Define special users (Cognito Identity IDs or sub IDs)
+    const privilegedUsers = [
+      'us-east-2:01e5e392-2e72-c08e-c25a-5bc8f3d58043',
+      'us-east-2:01e5e392-2e90-c07e-d718-cb11cc84f379',
+      'us-east-2:01e5e392-2e99-c8b7-72d6-121fdcffa23c',
+      'us-east-2:01e5e392-2edf-c251-ce73-f9e6bf3c7e83'
+    ];
+
+    // Default free upload limit
+    let UPLOAD_LIMIT = 5;
+
+    // Elevated limit for privileged users
+    if (privilegedUsers.includes(userId)) {
+      UPLOAD_LIMIT = 500;
+    }
+
     // List all processed files across all document types
     const documentTypes = ['aoc4', 'auditors-report', 'directors-report'];
     let totalProcessedFiles = 0;
 
     for (const docType of documentTypes) {
-      // Updated prefix to match IAM permissions structure
       const prefix = `${userId}/${docType}/processed/`;
-      
       try {
-        
         const response = await s3Client.send(
           new ListObjectsV2Command({
             Bucket: BUCKET_NAME,
             Prefix: prefix,
           })
         );
-
         const fileCount = response.Contents?.length || 0;
         totalProcessedFiles += fileCount;
-
       } catch (error) {
         console.warn(`Could not list files for ${docType}:`, error.message);
-        // Continue checking other document types even if one fails
       }
     }
-
-
-    const UPLOAD_LIMIT = 5;
 
     if (totalProcessedFiles >= UPLOAD_LIMIT) {
       return {
         allowed: false,
         currentCount: totalProcessedFiles,
         limit: UPLOAD_LIMIT,
-        message: `You have already processed ${totalProcessedFiles} document(s). Your free limit is ${UPLOAD_LIMIT} documents across all types (AOC4, Auditors Report, Directors Report).`
+        message: `You have already processed ${totalProcessedFiles} document(s). Your limit is ${UPLOAD_LIMIT}.`
       };
     }
 
@@ -100,11 +106,9 @@ export const checkUploadLimit = async () => {
     };
 
   } catch (error) {
-    
     if (error.message?.includes('not authenticated')) {
       throw error;
     }
-    
     throw new Error('Failed to check upload limit');
   }
 };
