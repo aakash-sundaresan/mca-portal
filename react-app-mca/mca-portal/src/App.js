@@ -360,20 +360,32 @@ export default function App() {
       showMessage('Please select both document and template files', 'error');
       return;
     }
-
+  
     setIsUploading(true);
     setUploadProgress(0);
-
+  
     try {
-      // Step 1: Upload document
-      const documentKey = `${uploadPath}${selectedDocumentFile.name}`;
+      // Get the document filename without extension for folder name
+      const documentFileName = selectedDocumentFile.name;
+      const documentBaseName = documentFileName.replace(/\.[^/.]+$/, '');
+      
+      // Generate timestamp
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5); // Format: 2024-11-08T10-30-45
+      
+      // Get template filename with extension
+      const templateFileName = selectedTemplateFile.name;
+      const templateExtension = templateFileName.substring(templateFileName.lastIndexOf('.'));
+      const templateBaseName = templateFileName.replace(/\.[^/.]+$/, '');
+      
+      // Step 1: Upload document (unchanged - to uploads folder)
+      const documentKey = `${uploadPath}${documentFileName}`;
       const documentParams = {
         Bucket: AWS_CONFIG.bucketName,
         Key: documentKey,
         Body: selectedDocumentFile,
         ContentType: selectedDocumentFile.type || 'application/octet-stream'
       };
-
+  
       const documentUpload = s3Client.upload(documentParams);
       documentUpload.on('httpUploadProgress', (progress) => {
         const percentage = Math.round((progress.loaded / progress.total) * 40);
@@ -382,16 +394,19 @@ export default function App() {
       await documentUpload.promise();
       
       showMessage('Document uploaded, uploading template...', 'info');
-
-      // Step 2: Upload template
-      const templateKey = `${templatePath}template.xlsx`;
+  
+      // Step 2: Upload template to template folder with document-based folder structure
+      // Path: {cognito_id}/{doc_type}/template/{document_basename}/{template_name_timestamp}.xlsx
+      const templateFolderPath = `${templatePath}${documentBaseName}/`;
+      const templateKeyWithTimestamp = `${templateFolderPath}${templateBaseName}_${timestamp}${templateExtension}`;
+      
       const templateParams = {
         Bucket: AWS_CONFIG.bucketName,
-        Key: templateKey,
+        Key: templateKeyWithTimestamp,
         Body: selectedTemplateFile,
         ContentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       };
-
+  
       const templateUpload = s3Client.upload(templateParams);
       templateUpload.on('httpUploadProgress', (progress) => {
         const percentage = 40 + Math.round((progress.loaded / progress.total) * 30);
@@ -401,7 +416,7 @@ export default function App() {
       
       setUploadProgress(70);
       showMessage('Both files uploaded, invoking processor...', 'info');
-
+  
       // Step 3: Invoke Lambda with improved error handling
       const LAMBDA_URLS = {
         'auditors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/process',
@@ -418,7 +433,7 @@ export default function App() {
       const requestPayload = {
         bucket: AWS_CONFIG.bucketName,
         document_key: documentKey,
-        template_key: templateKey
+        template_key: templateKeyWithTimestamp // Updated to use new template key with folder structure
       };
       
       try {
@@ -429,7 +444,7 @@ export default function App() {
           },
           body: JSON.stringify(requestPayload)
         });
-
+  
         // Try to parse response, but don't fail if we can't
         let result;
         try {
@@ -438,24 +453,23 @@ export default function App() {
           console.warn('Could not parse Lambda response as JSON, but files uploaded successfully');
           result = { success: true };
         }
-
+  
         // Log if response is not OK, but don't fail since upload succeeded
         if (!response.ok) {
           console.warn('Lambda returned non-OK status, but files are uploaded:', response.status);
         }
-
+  
         setUploadProgress(100);
         showMessage(
           'Files uploaded successfully. Processing in background...',
           'success'
         );
-
-        const uploadedFileName = selectedDocumentFile.name;
+  
         setSelectedDocumentFile(null);
         setSelectedTemplateFile(null);
         setIsPolling(true);
-        startPolling(uploadedFileName);
-
+        startPolling(documentFileName); // Keep original startPolling call
+  
       } catch (fetchError) {
         // If Lambda fetch fails but files are uploaded, still proceed with polling
         console.warn('Lambda invocation error (files still uploaded):', fetchError);
@@ -465,12 +479,11 @@ export default function App() {
           'Files uploaded. Processing started - check results in a few minutes.',
           'info'
         );
-
-        const uploadedFileName = selectedDocumentFile.name;
+  
         setSelectedDocumentFile(null);
         setSelectedTemplateFile(null);
         setIsPolling(true);
-        startPolling(uploadedFileName);
+        startPolling(documentFileName); // Keep original startPolling call
       }
       
     } catch (error) {
@@ -482,6 +495,7 @@ export default function App() {
       setUploadProgress(0);
     }
   };
+    
 
   const startPolling = (fileName) => {
     if (pollingInterval) {
