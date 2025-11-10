@@ -1,4 +1,4 @@
-// src/App.js - Professional UI with Dark Mode and Fixed Upload Error Handling
+// src/App.js - Simplified UI that calls Lambda → Fargate
 
 import React, { useState, useEffect } from 'react';
 import { AWS_CONFIG } from './config';
@@ -13,74 +13,13 @@ import DocumentTypeSelector from './components/DocumentTypeSelector';
 import UploadSection from './components/UploadSection';
 import FilledExcelViewer from './components/FilledExcelViewer';
 
-// Helper function for user-friendly error messages
-const getUserFriendlyErrorMessage = (error, context = '') => {
-  const errorString = error.message || error.toString();
-  
-  // Network/Connection errors
-  if (errorString.includes('NetworkingError') || errorString.includes('fetch')) {
-    return 'Connection error. Please check your internet and try again.';
-  }
-  
-  // Authentication errors
-  if (errorString.includes('NotAuthorizedException') || errorString.includes('credentials')) {
-    return 'Session expired. Please sign in again.';
-  }
-  
-  if (errorString.includes('Access Denied') || errorString.includes('AccessDenied')) {
-    return 'You don\'t have permission to access this file.';
-  }
-  
-  // S3 specific errors
-  if (errorString.includes('NoSuchKey') || errorString.includes('404')) {
-    return 'File not found. It may have been deleted or moved.';
-  }
-  
-  if (errorString.includes('NoSuchBucket')) {
-    return 'Storage location not found. Please contact support.';
-  }
-  
-  if (errorString.includes('RequestTimeout')) {
-    return 'Request timed out. Please try again.';
-  }
-  
-  if (errorString.includes('SlowDown') || errorString.includes('503')) {
-    return 'Service is busy. Please wait a moment and try again.';
-  }
-  
-  // File size errors
-  if (errorString.includes('EntityTooLarge')) {
-    return 'File is too large. Maximum size is 5GB.';
-  }
-  
-  // Generic context-specific messages
-  if (context === 'upload') {
-    return 'Upload failed. Please check your file and try again.';
-  }
-  
-  if (context === 'load') {
-    return 'Unable to load files. Please refresh the page.';
-  }
-  
-  if (context === 'view') {
-    return 'Unable to open file. Please try again.';
-  }
-  
-  // Default fallback
-  return 'Something went wrong. Please try again.';
-};
-
 const AWS = window.AWS;
 
 export default function App() {
   // Theme state
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    // Check localStorage first
     const saved = localStorage.getItem('theme');
-    if (saved) {
-      return saved === 'dark';
-    }
-    // Otherwise check system preference
+    if (saved) return saved === 'dark';
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
@@ -94,17 +33,10 @@ export default function App() {
   // App state
   const [s3Client, setS3Client] = useState(null);
   const [documentType, setDocumentType] = useState('auditors-report');
-  const [currentPath, setCurrentPath] = useState('');
-  const [pathHistory, setPathHistory] = useState([]);
-  const [files, setFiles] = useState([]);
-  
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [selectedTemplateFile, setSelectedTemplateFile] = useState(null);
-  
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [viewerFile, setViewerFile] = useState(null);
   const [message, setMessage] = useState({ text: '', type: '' });
   const [isPolling, setIsPolling] = useState(false);
   const [pollingInterval, setPollingInterval] = useState(null);
@@ -114,7 +46,7 @@ export default function App() {
   const templatePath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/template/` : null;
   const resultsPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/filled/` : null;
 
-  // Apply dark mode to document
+  // Apply dark mode
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
@@ -125,27 +57,17 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  // Toggle theme function
-  const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-  };
+  const toggleTheme = () => setIsDarkMode(!isDarkMode);
 
-  // Check if user is already logged in on mount
+  // Check auth on mount
   useEffect(() => {
     checkAuthStatus();
   }, []);
-
-  useEffect(() => {
-    if (cognitoIdentityId && !currentPath) {
-      setCurrentPath(`${cognitoIdentityId}/${documentType}/filled/`);
-    }
-  }, [cognitoIdentityId, documentType]);
 
   const checkAuthStatus = async () => {
     try {
       const currentUser = await getCurrentUser();
       const attributes = await fetchUserAttributes();
-      
       setUser(currentUser);
       setUserAttributes(attributes);
       setIsAuthenticated(true);
@@ -163,12 +85,11 @@ export default function App() {
         try {
           const session = await fetchAuthSession();
           const credentials = session?.credentials;
-  
           if (!credentials) throw new Error('No valid Cognito credentials');
-  
+
           const identityId = session.identityId;
           setCognitoIdentityId(identityId);
-  
+
           const s3 = new AWS.S3({
             region: AWS_CONFIG.region,
             credentials: {
@@ -178,30 +99,21 @@ export default function App() {
             },
             signatureVersion: 'v4'
           });
-  
+
           setS3Client(s3);
           showMessage('System initialized successfully', 'success');
         } catch (error) {
           console.error('AWS Auth error:', error);
-          showMessage(getUserFriendlyErrorMessage(error, 'auth'), 'error');
+          showMessage('Authentication error', 'error');
         }
       })();
     }
   }, [isAuthenticated]);
 
-  // Load files when path changes
-  useEffect(() => {
-    if (s3Client && currentPath) {
-      loadFiles(currentPath);
-    }
-  }, [s3Client, currentPath]);
-
-  // Cleanup polling on unmount
+  // Cleanup polling
   useEffect(() => {
     return () => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
+      if (pollingInterval) clearInterval(pollingInterval);
     };
   }, [pollingInterval]);
 
@@ -245,98 +157,7 @@ export default function App() {
 
   const handleDocumentTypeChange = (type) => {
     setDocumentType(type);
-    const newResultsPath = cognitoIdentityId 
-      ? `${cognitoIdentityId}/${type}/filled/` 
-      : `${type}/filled/`;
-    setCurrentPath(newResultsPath);
-    setPathHistory([]);
-    showMessage(
-      `Switched to ${getDocumentDisplayName(type)}`,
-      'success'
-    );
-  };
-
-  const loadFiles = async (prefix) => {
-    if (!s3Client) return;
-  
-    setIsLoading(true);
-    
-    try {
-      const params = {
-        Bucket: AWS_CONFIG.bucketName,
-        Prefix: prefix,
-        Delimiter: '/'
-      };
-  
-      const data = await s3Client.listObjectsV2(params).promise();  
-      const fileList = [];
-
-      if (prefix && prefix !== '') {
-        const parentPath =
-          prefix.split('/').slice(0, -2).join('/') +
-          (prefix.split('/').length > 2 ? '/' : '');
-        fileList.push({
-          name: '..',
-          key: parentPath,
-          type: 'parent',
-          size: null
-        });
-      }
-
-      if (data.CommonPrefixes) {
-        data.CommonPrefixes.forEach((prefixObj) => {
-          const folderName = prefixObj.Prefix.replace(prefix, '').replace(
-            /\/$/,
-            ''
-          );
-          fileList.push({
-            name: folderName,
-            key: prefixObj.Prefix,
-            type: 'folder',
-            size: null
-          });
-        });
-      }
-
-      if (data.Contents) {
-        data.Contents.forEach((object) => {
-          if (object.Key === prefix || object.Key.endsWith('/')) return;
-          const fileName = object.Key.split('/').pop();
-          const fileType = fileName.split('.').pop().toLowerCase();
-          fileList.push({
-            name: fileName,
-            key: object.Key,
-            type: fileType,
-            size: object.Size
-          });
-        });
-      }
-
-      setFiles(fileList);
-    } catch (error) {
-      console.error('Error loading files:', error);
-      showMessage(getUserFriendlyErrorMessage(error, 'load'), 'error');
-      setFiles([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const navigateToPath = (path) => {
-    if (path !== currentPath && currentPath) {
-      setPathHistory((prev) => [...prev, currentPath]);
-    }
-    setCurrentPath(path);
-  };
-
-  const goBack = () => {
-    if (pathHistory.length > 0) {
-      const previousPath = pathHistory[pathHistory.length - 1];
-      setPathHistory((prev) => prev.slice(0, -1));
-      setCurrentPath(previousPath);
-    } else {
-      setCurrentPath('');
-    }
+    showMessage(`Switched to ${getDocumentDisplayName(type)}`, 'success');
   };
 
   const handleDocumentFileSelect = (e) => {
@@ -360,24 +181,19 @@ export default function App() {
       showMessage('Please select both document and template files', 'error');
       return;
     }
-  
+
     setIsUploading(true);
     setUploadProgress(0);
-  
+
     try {
-      // Get the document filename without extension for folder name
       const documentFileName = selectedDocumentFile.name;
       const documentBaseName = documentFileName.replace(/\.[^/.]+$/, '');
-      
-      // Generate timestamp
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5); // Format: 2024-11-08T10-30-45
-      
-      // Get template filename with extension
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
       const templateFileName = selectedTemplateFile.name;
       const templateExtension = templateFileName.substring(templateFileName.lastIndexOf('.'));
       const templateBaseName = templateFileName.replace(/\.[^/.]+$/, '');
-      
-      // Step 1: Upload document (unchanged - to uploads folder)
+
+      // Step 1: Upload document to /uploads/
       const documentKey = `${uploadPath}${documentFileName}`;
       const documentParams = {
         Bucket: AWS_CONFIG.bucketName,
@@ -385,7 +201,7 @@ export default function App() {
         Body: selectedDocumentFile,
         ContentType: selectedDocumentFile.type || 'application/octet-stream'
       };
-  
+
       const documentUpload = s3Client.upload(documentParams);
       documentUpload.on('httpUploadProgress', (progress) => {
         const percentage = Math.round((progress.loaded / progress.total) * 40);
@@ -394,9 +210,8 @@ export default function App() {
       await documentUpload.promise();
       
       showMessage('Document uploaded, uploading template...', 'info');
-  
-      // Step 2: Upload template to template folder with document-based folder structure
-      // Path: {cognito_id}/{doc_type}/template/{document_basename}/{template_name_timestamp}.xlsx
+
+      // Step 2: Upload template to /template/{documentBaseName}/
       const templateFolderPath = `${templatePath}${documentBaseName}/`;
       const templateKeyWithTimestamp = `${templateFolderPath}${templateBaseName}_${timestamp}${templateExtension}`;
       
@@ -406,7 +221,7 @@ export default function App() {
         Body: selectedTemplateFile,
         ContentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       };
-  
+
       const templateUpload = s3Client.upload(templateParams);
       templateUpload.on('httpUploadProgress', (progress) => {
         const percentage = 40 + Math.round((progress.loaded / progress.total) * 30);
@@ -415,26 +230,19 @@ export default function App() {
       await templateUpload.promise();
       
       setUploadProgress(70);
-      showMessage('Both files uploaded, invoking processor...', 'info');
-  
-      // Step 3: Invoke Lambda with improved error handling
-      const LAMBDA_URLS = {
-        'auditors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/process',
-        'directors-report': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/directors-report-processing',
-        'aoc4': 'https://35zp3erglb.execute-api.us-east-2.amazonaws.com/prod/aoc4-processing'
-      };
-      
-      const LAMBDA_URL = LAMBDA_URLS[documentType];
-      
-      if (!LAMBDA_URL) {
-        throw new Error(`No Lambda URL configured for document type: ${documentType}`);
-      }
+      showMessage('Files uploaded, starting Fargate processing...', 'info');
+
+      // Step 3: Call Lambda to trigger Fargate
+      const LAMBDA_URL = 'https://smu2xf2939.execute-api.us-east-2.amazonaws.com/prod/trigger-fargate';
       
       const requestPayload = {
+        job_type: documentType,
         bucket: AWS_CONFIG.bucketName,
         document_key: documentKey,
-        template_key: templateKeyWithTimestamp // Updated to use new template key with folder structure
+        template_key: templateKeyWithTimestamp
       };
+      
+      console.log('🚀 Triggering Fargate with:', requestPayload);
       
       try {
         const response = await fetch(LAMBDA_URL, {
@@ -444,50 +252,46 @@ export default function App() {
           },
           body: JSON.stringify(requestPayload)
         });
-  
-        // Try to parse response, but don't fail if we can't
+
         let result;
         try {
           result = await response.json();
         } catch (jsonError) {
-          console.warn('Could not parse Lambda response as JSON, but files uploaded successfully');
+          console.warn('Could not parse response, but processing started');
           result = { success: true };
         }
-  
-        // Log if response is not OK, but don't fail since upload succeeded
+
         if (!response.ok) {
-          console.warn('Lambda returned non-OK status, but files are uploaded:', response.status);
+          console.warn('Lambda response not OK, but processing may have started:', response.status);
         }
-  
+
         setUploadProgress(100);
         showMessage(
-          'Files uploaded successfully. Processing in background...',
+          'Processing started! Your file will be ready in a few minutes.',
           'success'
         );
-  
+
         setSelectedDocumentFile(null);
         setSelectedTemplateFile(null);
         setIsPolling(true);
-        startPolling(documentFileName); // Keep original startPolling call
-  
+        startPolling(documentFileName);
+
       } catch (fetchError) {
-        // If Lambda fetch fails but files are uploaded, still proceed with polling
-        console.warn('Lambda invocation error (files still uploaded):', fetchError);
+        console.warn('Lambda error (processing may still start):', fetchError);
         
         setUploadProgress(100);
         showMessage(
-          'Files uploaded. Processing started - check results in a few minutes.',
+          'Files uploaded. Check results in a few minutes.',
           'info'
         );
-  
+
         setSelectedDocumentFile(null);
         setSelectedTemplateFile(null);
         setIsPolling(true);
-        startPolling(documentFileName); // Keep original startPolling call
+        startPolling(documentFileName);
       }
       
     } catch (error) {
-      // Only fail for S3 upload errors (before Lambda invocation)
       console.error('❌ Upload error:', error);
       showMessage('Upload failed: ' + error.message, 'error');
     } finally {
@@ -495,15 +299,12 @@ export default function App() {
       setUploadProgress(0);
     }
   };
-    
 
   const startPolling = (fileName) => {
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-    }
+    if (pollingInterval) clearInterval(pollingInterval);
 
     let pollCount = 0;
-    const maxPolls = 36;
+    const maxPolls = 60; // 10 minutes max
 
     const interval = setInterval(async () => {
       pollCount++;
@@ -524,8 +325,7 @@ export default function App() {
           clearInterval(interval);
           setPollingInterval(null);
           setIsPolling(false);
-          showMessage('Processing complete! Your filled Excel is ready.', 'success');
-          setCurrentPath(resultsPath);
+          showMessage('✅ Processing complete! Your filled Excel is ready.', 'success');
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -536,93 +336,22 @@ export default function App() {
         setPollingInterval(null);
         setIsPolling(false);
         showMessage(
-          'Polling stopped after 6 minutes. Please check results manually.',
+          'Polling stopped. Please check results manually.',
           'info'
         );
       }
-    }, 10000);
+    }, 10000); // Check every 10 seconds
 
     setPollingInterval(interval);
   };
 
-  const checkFileExists = async (key) => {
-    try {
-      const params = {
-        Bucket: AWS_CONFIG.bucketName,
-        Key: key
-      };
-
-      await s3Client.headObject(params).promise();
-      return true;
-    } catch (error) {
-      if (error.code === 'NotFound' || error.code === '404') {
-        return false;
-      }
-      console.error('Error checking file:', error);
-      return false;
-    }
-  };
-
-  const viewFile = async (file) => {
-    try {
-      const params = { Bucket: AWS_CONFIG.bucketName, Key: file.key };
-      const data = await s3Client.getObject(params).promise();
-
-      setViewerFile({
-        name: file.name,
-        key: file.key,
-        content: data.Body.toString(),
-        type: file.type
-      });
-    } catch (error) {
-      showMessage('Error loading file: ' + error.message, 'error');
-      console.error('Error viewing file:', error);
-    }
-  };
-
-  const handleFileClick = (file) => {
-    if (file.type === 'folder' || file.type === 'parent') {
-      navigateToPath(file.key);
-    } else {
-      viewFile(file);
-    }
-  };
-
-  // Debug helper to test S3 directly from browser console
-  window.debugS3List = async (prefix) => {
-    try {
-      const session = await fetchAuthSession();
-      const credentials = session.credentials;
-
-      const s3 = new AWS.S3({
-        region: AWS_CONFIG.region,
-        credentials: {
-          accessKeyId: credentials.accessKeyId,
-          secretAccessKey: credentials.secretAccessKey,
-          sessionToken: credentials.sessionToken
-        },
-        signatureVersion: 'v4'
-      });
-
-      const result = await s3.listObjectsV2({
-        Bucket: AWS_CONFIG.bucketName,
-        Prefix: prefix
-      }).promise();
-
-      return result;
-    } catch (err) {
-      return err;
-    }
-  };
-  
-  // Show loading state while checking auth
+  // Loading state
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
         <div className="text-center">
           <div className="relative">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200 dark:border-slate-700 border-t-blue-600 dark:border-t-blue-500 mx-auto"></div>
-            <div className="absolute inset-0 rounded-full h-16 w-16 border-4 border-transparent border-r-blue-400 dark:border-r-blue-600 animate-spin mx-auto" style={{ animationDuration: '1.5s', animationDirection: 'reverse' }}></div>
           </div>
           <p className="mt-6 text-slate-600 dark:text-slate-300 font-medium">Loading your workspace...</p>
         </div>
@@ -630,7 +359,7 @@ export default function App() {
     );
   }
 
-  // Show auth screens if not authenticated
+  // Auth screens
   if (!isAuthenticated) {
     if (showSignUp) {
       return (
@@ -648,7 +377,7 @@ export default function App() {
     );
   }
 
-  // Show main app if authenticated
+  // Main app
   const displayUser = {
     ...user,
     attributes: userAttributes || {}
@@ -668,7 +397,7 @@ export default function App() {
 
         <main className="px-4 sm:px-6 lg:px-8 py-8">
           <div className="space-y-8">
-            {/* Document Type Selector Card */}
+            {/* Document Type Selector */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 p-6 backdrop-blur-sm transition-colors duration-300">
               <DocumentTypeSelector
                 documentType={documentType}
@@ -676,11 +405,11 @@ export default function App() {
               />
             </div>
 
-            {/* Upload Section Card */}
+            {/* Upload Section */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
               <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Upload Documents</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Select your document and template to begin processing</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Files will be processed on AWS Fargate</p>
               </div>
               <div className="p-6">
                 <UploadSection
@@ -694,12 +423,11 @@ export default function App() {
                   isPolling={isPolling}
                   uploadPath={uploadPath}
                   templatePath={templatePath}
-                  onCheckResults={() => setCurrentPath(resultsPath)}
                 />
               </div>
             </div>
 
-            {/* Results Viewer Card */}
+            {/* Results Viewer */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
               <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
                 <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Processed Files</h2>
