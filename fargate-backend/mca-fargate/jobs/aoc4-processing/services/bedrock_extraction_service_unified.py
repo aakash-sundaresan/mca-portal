@@ -1,3 +1,13 @@
+"""
+AOC-4 Complete Extraction System with Improved Mapping Validation
+
+FIXES:
+- Validates that mapped cells are unprotected (is_protected = False)
+- Auto-corrects mappings that point to protected cells
+- Better prompt emphasizing unprotected cell selection
+- Handles negative numbers correctly in calculations
+"""
+
 import json
 import boto3
 import re
@@ -549,8 +559,6 @@ No explanations. No markdown.
     log_info(f"Fields with values: {fields_found}")
     log_info(f"Fields with defaults: {len(extracted_values) - fields_found}")
     
-    # Log complete JSON
-    
     return extracted_values
 
 
@@ -570,7 +578,7 @@ def generate_field_to_cell_mapping(template_data: dict, force_regenerate: bool =
     
     Returns:
         Dict of {field_path: cell_address}
-        Example: {"balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital": "G201"}
+        Example: {"balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital": "M201"}
     """
     log_info("=" * 80)
     log_info("PASS 2: EXTRACT CELL ADDRESSES FROM TEMPLATE")
@@ -618,66 +626,75 @@ FIELD DEFINITIONS (find cell address for each):
 TEMPLATE STRUCTURE (all rows with cells and values):
 {json.dumps(grouped_template, indent=2)}
 
+CRITICAL UNDERSTANDING OF TEMPLATE FORMAT:
+- Each cell is shown as: "cell_address": [value, is_protected]
+- is_protected = True  → This is a LABEL/HEADER cell (READ ONLY - DO NOT USE)
+- is_protected = False → This is a DATA ENTRY cell (USE THIS FOR DATA)
+
 YOUR TASK:
-For each field definition, identify the EXACT CELL ADDRESS where this data should go.
+For each field definition, find the UNPROTECTED CELL (is_protected = False) where data should go.
 
 MAPPING STRATEGY:
 
-1. PARSE THE FIELD PATH:
-   Field: "balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital"
-   → Section: Balance Sheet
-   → Category: Equity and Liabilities  
-   → Subcategory: Shareholder's Fund
-   → Item: Share Capital
+1. FIND THE CORRECT ROW:
+   - Search for the row containing the field's label
+   - Example: For "netWorthOfCompany", find row with "Net Worth" label
 
-2. NAVIGATE TEMPLATE HIERARCHY:
-   - Find section headers (protected cells with section names)
-   - Navigate through subsections
-   - Locate the specific row for the item
-   - Identify the data input cell (usually unprotected)
+2. IDENTIFY THE DATA CELL (CRITICAL STEP):
+   - In that row, find cells where is_protected = False
+   - These are the data entry cells
+   - IGNORE cells where is_protected = True (those are just labels)
+   
+3. DETAILED EXAMPLE:
 
-3. SEMANTIC MATCHING:
+Row 371 in template:
+{{
+  "G371": ["Net Worth of the company", True],     ← is_protected=True (LABEL)
+  "M371": ["", False],                            ← is_protected=False (DATA CELL)
+  "N371": ["", False]                             ← is_protected=False (DATA CELL)
+}}
+
+Field: "financialParameters.netWorthOfCompany"
+
+Analysis:
+- G371 has is_protected=True → This is the LABEL "Net Worth of the company"
+- M371 has is_protected=False → This is a DATA ENTRY cell (current year)
+- N371 has is_protected=False → This is a DATA ENTRY cell (previous year)
+
+✓ CORRECT: Return "M371" (first unprotected cell)
+✗ WRONG: Return "G371" (that's protected - it's the label!)
+
+4. MULTIPLE DATA COLUMNS:
+
+When a row has multiple unprotected cells:
+- First unprotected cell → Current Year data
+- Second unprotected cell → Previous Year data
+- Choose based on field context, default to first
+
+5. SEMANTIC MATCHING:
    - Field names may differ from template labels
-   - "shareCapital" could be labeled "Share Capital" or "Equity Share Capital"
-   - "tradeReceivables" could be "Trade Receivables" or "Sundry Debtors"
-   - "employeeBenefitExpenses" could be "Employee Benefits" or "Staff Costs"
-   - Match by financial meaning
+   - "shareCapital" matches "Share Capital", "Equity Share Capital"
+   - "reservesAndSurplus" matches "Reserves and Surplus", "Reserves & Surplus"
+   - "tradeReceivables" matches "Trade Receivables", "Sundry Debtors"
+   - Match by financial meaning, not exact text
 
-4. HANDLE MULTIPLE COLUMNS:
-   - Some rows have multiple data columns (Current Year, Previous Year)
-   - Look for column headers to identify correct column
-   - If field path hints at period (e.g., "atTheBeginningOfTheYear"), use that column
-   - Default to first data column if ambiguous
-
-5. EXAMPLES:
-
-Field: "balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital"
-Steps:
-→ Find "Balance Sheet" section header
-→ Find "Equity and Liabilities" subsection
-→ Find "Shareholder's Fund" subsection  
-→ Find row with "Share Capital" label
-→ Identify unprotected cell in that row
-Result: "G201"
-
-Field: "raisedShareCapital.equityShare.increaseAmount.bonusIssueNumberOfShares"
-Steps:
-→ Find "Raised Share Capital" section
-→ Find "Equity Share" table
-→ Find "Increase" subsection
-→ Find "Bonus Issue" row
-→ Find "Number of Shares" column
-Result: "F165"
+6. VERIFICATION CHECKLIST (MUST VERIFY BEFORE RETURNING):
+   ✓ Is is_protected = False for the cell I'm returning?
+   ✓ Is the cell in the correct row (matching the field label)?
+   ✓ Is it a data entry cell, NOT a label cell?
+   ✓ Does the column position make sense?
 
 OUTPUT FORMAT:
 {{
-  "balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital": "G201",
-  "raisedShareCapital.equityShare.increaseAmount.bonusIssueNumberOfShares": "F165",
-  "statementOfProfitAndLoss.expenses.employeeBenefitExpenses": "E402"
+  "balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital": "M201",
+  "financialParameters.netWorthOfCompany": "M371",
+  "statementOfProfitAndLoss.expenses.employeeBenefitExpenses": "N402"
 }}
 
 CRITICAL RULES:
-- Return EXACT cell addresses (e.g., "G201", "AB45")
+- Return ONLY cells where is_protected = False
+- NEVER EVER return cells where is_protected = True
+- Return exact cell addresses (e.g., "M371", "AB45")
 - Only map fields you can confidently locate
 - Skip fields if uncertain
 - Return {{}} if no confident mappings
@@ -690,9 +707,46 @@ Return ONLY valid JSON. No explanations. No markdown.
             batch_mapping = _extract_json(response)
             
             if batch_mapping:
-                complete_mapping.update(batch_mapping)
-                log_info(f"  ✓ Mapped {len(batch_mapping)} fields")
+                # VALIDATION: Check that mapped cells are unprotected
+                validated_mapping = {}
+                rejected_count = 0
+                corrected_count = 0
                 
+                for field_path, cell_address in batch_mapping.items():
+                    if cell_address in template_data:
+                        value, is_protected = template_data[cell_address]
+                        
+                        if not is_protected:
+                            # Good - it's an unprotected cell
+                            validated_mapping[field_path] = cell_address
+                        else:
+                            # Bad - AI mapped to a protected cell (label)
+                            rejected_count += 1
+                            log_error(f"    ✗ REJECTED: {field_path} → {cell_address} (protected cell)")
+                            
+                            # Try to auto-correct by finding unprotected cell in same row
+                            match = re.search(r'([A-Z]+)(\d+)', cell_address)
+                            if match:
+                                col_letter = match.group(1)
+                                row_num = match.group(2)
+                                
+                                # Look for unprotected cells in the same row
+                                for candidate_cell, (val, protected) in template_data.items():
+                                    if candidate_cell.endswith(row_num) and not protected:
+                                        validated_mapping[field_path] = candidate_cell
+                                        corrected_count += 1
+                                        log_info(f"    ✓ AUTO-CORRECTED: {field_path} → {candidate_cell}")
+                                        break
+                    else:
+                        log_error(f"    ✗ Cell {cell_address} not found in template")
+                
+                complete_mapping.update(validated_mapping)
+                log_info(f"  ✓ Mapped {len(validated_mapping)} fields")
+                
+                if rejected_count > 0:
+                    log_info(f"  ⚠ Rejected {rejected_count} protected cells")
+                if corrected_count > 0:
+                    log_info(f"  ✓ Auto-corrected {corrected_count} mappings")
         
         except Exception as e:
             log_error(f"  ✗ Batch {batch_num//batch_size + 1} failed: {str(e)}")
@@ -719,8 +773,6 @@ Return ONLY valid JSON. No explanations. No markdown.
         json.dump(complete_mapping, f, indent=2)
     log_info(f"\n✓ Saved mapping to {MAPPING_FILE}")
     
-    # Also log the complete mapping
-    
     return complete_mapping
 
 
@@ -732,6 +784,8 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
                                field_to_cell_mapping: Dict[str, str]) -> Dict[str, Any]:
     """
     PASS 3: Combine extracted values with cell mapping
+    
+    This is INSTANT - no AI needed, just dictionary lookup.
     """
     log_info("=" * 80)
     log_info("PASS 3: COMBINE VALUES + MAPPING (NO AI)")
@@ -744,7 +798,7 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
     
     for field_path, value in extracted_values.items():
         # Count fields with actual values (include negatives and zero!)
-        if value not in ("", None):  # ✅ Changed: removed 0 from check
+        if value not in ("", None):
             value_count += 1
         
         # Try to map to cell
@@ -755,7 +809,7 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
             
         else:
             # Track unmapped fields that have values
-            if value not in ("", None):  # ✅ Changed: removed 0 from check
+            if value not in ("", None):
                 unmapped_with_values.append((field_path, value))
     
     # ============================================================
@@ -770,7 +824,8 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
     
     share_capital = extracted_values.get(share_capital_field, 0)
     reserves_surplus = extracted_values.get(reserves_surplus_field, 0)
-    log_info(f"Reserves Surplus: {reserves_surplus} ")
+    log_info(f"    Share Capital: {share_capital}")
+    log_info(f"    Reserves & Surplus: {reserves_surplus}")
     
     # Convert to numeric, handle empty strings (but keep negatives!)
     if share_capital in ("", None):
@@ -781,7 +836,7 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
     if reserves_surplus in ("", None):
         reserves_surplus = 0
     else:
-        reserves_surplus = float(reserves_surplus)  # ✅ This will work with negatives
+        reserves_surplus = float(reserves_surplus)
     
     net_worth = share_capital + reserves_surplus
     
@@ -811,7 +866,7 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
     log_info(f"Total cells filled: {len(cell_values)}")
     
     # Show cells with non-zero values
-    non_zero_cells = {k: v for k, v in cell_values.items() if v not in ("", None)}  # ✅ Changed
+    non_zero_cells = {k: v for k, v in cell_values.items() if v not in ("", None)}
     log_info(f"Cells with non-zero values: {len(non_zero_cells)}")
     
     # Warn about unmapped fields with values
@@ -822,15 +877,39 @@ def combine_values_and_mapping(extracted_values: Dict[str, Any],
         if len(unmapped_with_values) > 10:
             log_info(f"  ... and {len(unmapped_with_values) - 10} more")
     
-    
     return cell_values
 
+
+# ============================================================================
+# MAIN ENTRY POINT
+# ============================================================================
+
 def extract_aoc4_fields_with_bedrock(document_text: str, template_data: dict) -> Dict[str, Any]:
-    # ✅ Execute Pass 1
+    """
+    Main entry point for AOC-4 extraction
+    
+    Args:
+        document_text: Extracted text from AOC-4 PDF
+        template_data: Excel template structure {cell: [value, is_protected]}
+    
+    Returns:
+        Dict of {cell_address: value} ready to fill into Excel
+    """
+    log_info("\n" + "=" * 80)
+    log_info("AOC-4 COMPLETE EXTRACTION SYSTEM")
+    log_info("=" * 80)
+    
+    # PASS 1: Extract values from document (AI, per document)
     extracted_values = extract_field_values_from_document(document_text)
     
-    # ✅ Execute Pass 2
+    # PASS 2: Get field-to-cell mapping from template (cached, one-time)
     field_to_cell_mapping = generate_field_to_cell_mapping(template_data)
     
-    # ✅ Execute Pass 3 with correct arguments
-    return combine_values_and_mapping(extracted_values, field_to_cell_mapping)
+    # PASS 3: Combine both (no AI, instant)
+    cell_values = combine_values_and_mapping(extracted_values, field_to_cell_mapping)
+    
+    log_info("\n" + "=" * 80)
+    log_info("✓ EXTRACTION COMPLETE")
+    log_info("=" * 80)
+    
+    return cell_values
