@@ -1,6 +1,6 @@
 // src/components/DocumentTypeSelector.jsx - Professional UI with Dark Mode
 import React from 'react';
-import { CheckCircle2, FileText, Briefcase, Users } from 'lucide-react';
+import { CheckCircle2, FileText, Briefcase, Users, FileSpreadsheet } from 'lucide-react';
 
 export default function DocumentTypeSelector({ documentType, onChange }) {
   const options = [
@@ -9,6 +9,12 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
       title: "Auditor's Report",
       icon: FileText,
       color: "blue"
+    },
+    {
+      value: 'aoc2',
+      title: 'AOC-2',
+      icon: FileSpreadsheet,
+      color: "emerald"
     },
     {
       value: 'aoc4',
@@ -35,7 +41,7 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
         </span>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {options.map(option => {
           const Icon = option.icon;
           const isSelected = documentType === option.value;
@@ -49,6 +55,15 @@ export default function DocumentTypeSelector({ documentType, onChange }) {
               text: 'text-blue-900 dark:text-blue-100',
               checkmark: 'text-blue-600 dark:text-blue-400',
               ring: 'ring-blue-500/20 dark:ring-blue-400/30'
+            },
+            emerald: {
+              border: 'border-emerald-500 dark:border-emerald-400',
+              bg: 'bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/40 dark:to-emerald-900/30',
+              iconBg: 'bg-gradient-to-br from-emerald-600 to-emerald-700 dark:from-emerald-500 dark:to-emerald-600',
+              iconBgUnselected: 'bg-slate-100 dark:bg-slate-700/50 group-hover:bg-slate-200 dark:group-hover:bg-slate-600',
+              text: 'text-emerald-900 dark:text-emerald-100',
+              checkmark: 'text-emerald-600 dark:text-emerald-400',
+              ring: 'ring-emerald-500/20 dark:ring-emerald-400/30'
             },
             indigo: {
               border: 'border-indigo-500 dark:border-indigo-400',

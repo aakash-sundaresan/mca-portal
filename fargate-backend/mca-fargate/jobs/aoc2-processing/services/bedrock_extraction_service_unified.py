@@ -20,7 +20,7 @@ import os
 from typing import Dict, Any
 from config import CHUNK_SIZE, CHUNK_OVERLAP
 from utils.logger import log_info, log_error
-from services.bedrock_constants import (
+from services.bedrock_constants_aoc2 import (
     PREDEFINED_FIELDS,
     EXTRACTION_PROMPT_TEMPLATE,
     CELL_MAPPING_PROMPT_TEMPLATE
@@ -43,22 +43,68 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 # PASS 1: Extract Values from Data File
 # ============================================================================
 
-def extract_field_values_from_document(document_text: str) -> Dict[str, Any]:
+def extract_number_of_contracts(document_text: str) -> int:
     """
-    PASS 1: Extract field values from AOC-4 document
+    Extract the number of material contracts from the document.
+    
+    Looks for patterns like:
+    - "Number of material contracts or arrangements or transactions at arm's length basis: 2"
+    - "Total related party contracts: 3"
     
     Args:
-        document_text: The extracted text from AOC-4 PDF
+        document_text: The full document text
+    
+    Returns:
+        Number of contracts found (default: 5 if not found)
+    """
+    import re
+    
+    log_info("\n--- Extracting Number of Contracts ---")
+    
+    # Pattern 1: "Number of material contracts ... : X"
+    pattern1 = r'number\s+of\s+material\s+contracts[^:]*:\s*(\d+)'
+    match1 = re.search(pattern1, document_text.lower())
+    
+    if match1:
+        num = int(match1.group(1))
+        log_info(f"  ✓ Found in document: {num} material contracts")
+        return num
+    
+    # Pattern 2: Count rows in related party table (fallback)
+    # Look for multiple occurrences of CIN patterns
+    cin_pattern = r'[UL]\d{5}[A-Z]{2}\d{4}[A-Z]{3}\d{6}'
+    cin_matches = re.findall(cin_pattern, document_text)
+    
+    if cin_matches:
+        num = len(set(cin_matches))  # Unique CINs
+        log_info(f"  ✓ Counted from CIN patterns: {num} related parties")
+        return num
+    
+    # Default to 5 if can't determine
+    log_info(f"  ⚠ Could not determine number of contracts, defaulting to 5")
+    return 5
+
+def extract_field_values_from_document(document_text: str) -> Dict[str, Any]:
+    """
+    PASS 1: Extract field values from AOC-2 document
+    
+    Args:
+        document_text: The extracted text from AOC-2 PDF
     
     Returns:
         Dict of {field_path: extracted_value}
-        Example: {"balanceSheet.equityAndLiabilities.shareHoldersFund.shareCapital": 2500000.0}
     """
     log_info("=" * 80)
     log_info("PASS 1: EXTRACT VALUES FROM DATA FILE")
     log_info("=" * 80)
     log_info(f"Document length: {len(document_text):,} chars")
-    log_info(f"Total fields to extract: {len(PREDEFINED_FIELDS)}")
+    
+    # FIRST: Determine how many contracts exist
+    from services.bedrock_constants_aoc2 import update_predefined_fields_based_on_count
+    num_contracts = extract_number_of_contracts(document_text)
+    update_predefined_fields_based_on_count(num_contracts)
+    
+    log_info(f"Total fields to extract: {len(PREDEFINED_FIELDS)} (for {num_contracts} contracts)")
     
     # Initialize ALL fields with defaults
     extracted_values = {
@@ -66,7 +112,7 @@ def extract_field_values_from_document(document_text: str) -> Dict[str, Any]:
         for field_path, field_config in PREDEFINED_FIELDS.items()
     }
     log_info(f"✓ Initialized {len(extracted_values)} fields with default values")
-    
+        
     # Process document in chunks
     chunk_num = 0
     doc_position = 0

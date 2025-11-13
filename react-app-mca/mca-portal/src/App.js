@@ -32,7 +32,7 @@ export default function App() {
 
   // App state
   const [s3Client, setS3Client] = useState(null);
-  const [documentType, setDocumentType] = useState('auditors-report');
+  const [documentType, setDocumentType] = useState(null); // Changed from 'auditors-report' to null
   const [selectedDocumentFile, setSelectedDocumentFile] = useState(null);
   const [selectedTemplateFile, setSelectedTemplateFile] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -42,9 +42,9 @@ export default function App() {
   const [pollingInterval, setPollingInterval] = useState(null);
   const [cognitoIdentityId, setCognitoIdentityId] = useState(null);
 
-  const uploadPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/uploads/` : null;
-  const templatePath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/template/` : null;
-  const resultsPath = cognitoIdentityId ? `${cognitoIdentityId}/${documentType}/filled/` : null;
+  const uploadPath = cognitoIdentityId && documentType ? `${cognitoIdentityId}/${documentType}/uploads/` : null;
+  const templatePath = cognitoIdentityId && documentType ? `${cognitoIdentityId}/${documentType}/template/` : null;
+  const resultsPath = cognitoIdentityId && documentType ? `${cognitoIdentityId}/${documentType}/filled/` : null;
 
   // Apply dark mode
   useEffect(() => {
@@ -149,6 +149,7 @@ export default function App() {
   const getDocumentDisplayName = (type) => {
     const names = {
       'auditors-report': "Auditor's Report",
+      'aoc2': 'AOC-2',
       'aoc4': 'AOC-4',
       'directors-report': "Director's Report"
     };
@@ -157,6 +158,9 @@ export default function App() {
 
   const handleDocumentTypeChange = (type) => {
     setDocumentType(type);
+    // Reset selected files when changing document type
+    setSelectedDocumentFile(null);
+    setSelectedTemplateFile(null);
     showMessage(`Switched to ${getDocumentDisplayName(type)}`, 'success');
   };
 
@@ -405,44 +409,49 @@ export default function App() {
               />
             </div>
 
-            {/* Upload Section */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
-              <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Upload Documents</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Files will be processed on AWS Fargate</p>
-              </div>
-              <div className="p-6">
-                <UploadSection
-                  selectedDocumentFile={selectedDocumentFile}
-                  selectedTemplateFile={selectedTemplateFile}
-                  onDocumentSelect={handleDocumentFileSelect}
-                  onTemplateSelect={handleTemplateFileSelect}
-                  onUpload={handleUpload}
-                  isUploading={isUploading}
-                  uploadProgress={uploadProgress}
-                  isPolling={isPolling}
-                  uploadPath={uploadPath}
-                  templatePath={templatePath}
-                />
-              </div>
-            </div>
+            {/* Conditionally render sections only when documentType is selected */}
+            {documentType && (
+              <>
+                {/* Upload Section */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
+                  <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
+                    <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Upload Documents</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Files will be processed on AWS Fargate</p>
+                  </div>
+                  <div className="p-6">
+                    <UploadSection
+                      selectedDocumentFile={selectedDocumentFile}
+                      selectedTemplateFile={selectedTemplateFile}
+                      onDocumentSelect={handleDocumentFileSelect}
+                      onTemplateSelect={handleTemplateFileSelect}
+                      onUpload={handleUpload}
+                      isUploading={isUploading}
+                      uploadProgress={uploadProgress}
+                      isPolling={isPolling}
+                      uploadPath={uploadPath}
+                      templatePath={templatePath}
+                    />
+                  </div>
+                </div>
 
-            {/* Results Viewer */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
-              <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
-                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Processed Files</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">View and download your completed documents</p>
-              </div>
-              <div className="p-6">
-                <FilledExcelViewer
-                  documentType={documentType}
-                  s3Client={s3Client}
-                  bucketName={AWS_CONFIG.bucketName}
-                  identityId={cognitoIdentityId}
-                  onShowMessage={showMessage}
-                />
-              </div>
-            </div>
+                {/* Results Viewer */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 overflow-hidden backdrop-blur-sm transition-colors duration-300">
+                  <div className="border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-slate-50 to-transparent dark:from-slate-700/50 dark:to-transparent px-6 py-4 transition-colors duration-300">
+                    <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Processed Files</h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">View and download your completed documents</p>
+                  </div>
+                  <div className="p-6">
+                    <FilledExcelViewer
+                      documentType={documentType}
+                      s3Client={s3Client}
+                      bucketName={AWS_CONFIG.bucketName}
+                      identityId={cognitoIdentityId}
+                      onShowMessage={showMessage}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </main>
       </div>

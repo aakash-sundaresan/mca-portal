@@ -29,6 +29,8 @@ JOB_PROCESSOR_FILES = {
     'aoc4-processing': 'jobs/aoc4-processing/job_aoc4.py',
     'directors-report': 'jobs/directors-report-processing/job_directors_report.py',
     'directors-report-processing': 'jobs/directors-report-processing/job_directors_report.py',
+    'aoc2': 'jobs/aoc2-processing/job_aoc2.py',
+    'aoc2-processing': 'jobs/aoc2-processing/job_aoc2.py',
 }
 
 
@@ -101,6 +103,9 @@ def main():
             elif job_type.startswith('directors'):
                 document_key = os.environ.get('DIRECTORS_DOCUMENT_KEY')
                 template_key = os.environ.get('DIRECTORS_TEMPLATE_KEY')
+            elif job_type.startswith('aoc2'):
+                document_key = os.environ.get('AOC2_DOCUMENT_KEY')
+                template_key = os.environ.get('AOC2_TEMPLATE_KEY')
 
         
         if not all([bucket, document_key, template_key]):
